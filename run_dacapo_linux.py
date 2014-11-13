@@ -79,7 +79,7 @@ def runDacapo(options):
 
     # Save experiement system state (revision #, env vars, timestamp, benchmark(s) run)
     sys_state = dict()
-    sys_state['git_revision'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+    sys_state['git_revision'] = subprocess.Popen(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE).communicate()[0]
     sys_state['env_vars'] = dict(os.environ)
     sys_state['benchmarks'] = benchmarks
     sys_state['CPU'] = parseCpuModel()
