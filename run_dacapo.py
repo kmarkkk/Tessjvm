@@ -116,7 +116,7 @@ def runDacapo(options):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
 
                         if options.xen:
-                            dacapo_cmd = " ".join(cmd)
+                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
                             cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
                                     '-e', "'%s'" % dacapo_cmd, '-p xen']
 
