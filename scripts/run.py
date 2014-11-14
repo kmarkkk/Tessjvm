@@ -255,7 +255,7 @@ def start_osv_xen(options):
         #create a loop device backed by image file
         # subprocess.call(["losetup", "/dev/loop%s" % os.getpid(), options.image_file])
         # Launch qemu
-        cmdline = ["xl", "create"]
+        cmdline = ["sudo", "xl", "create"]
         if not options.detach:
             cmdline += ["-c"]
         cmdline += [xenfile.name]
@@ -268,7 +268,7 @@ def start_osv_xen(options):
     finally:
         xenfile.close()
         #delete loop device
-        subprocess.call(["losetup", "-d", "/dev/loop%s" % os.getpid()])
+        #subprocess.call(["losetup", "-d", "/dev/loop%s" % os.getpid()])
         cleanups()
 
 def start_osv_vmware(options):
