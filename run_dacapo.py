@@ -9,7 +9,6 @@ import subprocess
 
 ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
 EXPERIMENT = "dacapo"
-TYPE = "linux"
 
 def printVerbose(options, statement):
     if options.verbose:
@@ -22,7 +21,7 @@ def mkdir(directory, clean=False):
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-def cleanUp(options, procs, stdout):
+def cleanUp(options, procs, stdout, stderr):
     #Cleanup Scratch Directories
     for i in range(options.numjvms):
         subprocess.Popen(['rm', '-rf', 'scratch%d' % i])
@@ -31,11 +30,12 @@ def cleanUp(options, procs, stdout):
     if procs:
         for proc in procs:
             proc.kill()
-            stdout.close()
 
-    #Flush and Close the currently open stdout file
+    #Flush and Close the currently open stdout/stderr file
     if stdout:
         stdout.close()
+    if stderr:
+        stderr.close()
 
 def parseCpuModel():
     #Adapted from http://amitsaha.github.io/site/notes/articles/python_linux/article.html
@@ -61,14 +61,22 @@ def parseMemory():
     return "Unknown"
 
 def runDacapo(options):
+    if options.xen:
+        if options.gangscheduled:
+            platform = "xen_gangscheduled"
+        else:
+            platform = "xen"
+    else:
+        platform = "linux"
+
     # Build the Directory Structure
     resultsdir = options.resultsdir
     experimentdir = os.path.join(resultsdir, EXPERIMENT)
-    typedir = os.path.join(experimentdir, TYPE)
+    platformdir = os.path.join(experimentdir, platform)
 
     mkdir(resultsdir)
     mkdir(experimentdir)
-    mkdir(typedir)
+    mkdir(platformdir)
 
     # Parse which dacapo benchmark to run
     if options.benchmark == "all":
@@ -84,7 +92,7 @@ def runDacapo(options):
     sys_state['benchmarks'] = benchmarks
     sys_state['CPU'] = parseCpuModel()
     sys_state['Memory'] = parseMemory()
-    sys_state_file = open(os.path.join(typedir, 'sys_state_%s.json' % datetime.datetime.now().isoformat()), 'w')
+    sys_state_file = open(os.path.join(platformdir, 'sys_state_%s.json' % datetime.datetime.now().isoformat()), 'w')
     json.dump(sys_state, sys_state_file, sort_keys=True, indent=4, separators=(',', ': '))
     sys_state_file.close()
 
@@ -100,30 +108,38 @@ def runDacapo(options):
                     printVerbose(options, "Heapsize: %dMB" % heapsize)
                     procs = []
 
-                    outputdir = os.path.join(typedir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
+                    outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
                     mkdir(outputdir, clean=True)
                     stdout = open(os.path.join(outputdir, 'stdout'), 'a')
+                    stderr = open(os.path.join(outputdir, 'stderr'), 'a')
                     for i in range(numjvms):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
+
+                        if options.xen:
+                            dacapo_cmd = " ".join(cmd)
+                            cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
+                                    '-e', "'%s'" % dacapo_cmd, '-p xen']
+
                         printVerbose(options, " ".join(cmd))
                         if options.stdout:
                             proc = subprocess.Popen(cmd)
                         else:
-                            proc = subprocess.Popen(cmd, stdout=stdout, stderr=stdout)
+                            proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
                         procs.append(proc)
 
                     for proc in procs:
                         proc.wait()
                         procs.remove(proc)
                     stdout.close()
+                    stderr.close()
                     heapsize *= 2
                 except KeyboardInterrupt as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiements"
-                    cleanUp(options, procs, stdout)
+                    cleanUp(options, procs, stdout, stderr)
                     raise e
             numjvms *= 2
 
-    cleanUp(options, procs, stdout)
+    cleanUp(options, procs, stdout, stderr)
 
 
 if __name__ == "__main__":
@@ -133,9 +149,14 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
     parser.add_argument("-d", "--dacapo", action="store", default="dacapo-9.12-bach.jar", help="where dacapo is located")
     parser.add_argument("-r", "--resultsdir", action="store", help="where to store results")
-    parser.add_argument("-m", "--maxheap", action="store", type=int, default=4096, help="max head size")
+    parser.add_argument("-p", "--maxheap", action="store", type=int, default=4096, help="max heap size")
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help="be more verbose")
     parser.add_argument("-s", "--stdout", action="store_true", default=False, help="Output to stdout rather than to results dir")
+    parser.add_argument("-x", "--xen", action="store_true", default=False, help="whether or not to run on xen")
+    parser.add_argument("-g", "--gangscheduled", action="store_true", default=False, help="whether or not the version of xen has gang scheduling")
+    parser.add_argument("-i", "--image", action="store", default=None, help="location of the osv image with dacapo on it")
+    parser.add_argument("-m", "--memsize", action="store", default="2G", help="specify memory: ex. 1G, 2G, ...")
+    parser.add_argument("-c", "--vcpus", action="store", default="4", help="specify number of vcpus")
     cmdargs = parser.parse_args()
     
     runDacapo(cmdargs)
