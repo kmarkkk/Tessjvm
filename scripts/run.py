@@ -239,7 +239,7 @@ def start_osv_xen(options):
     ]
 
     if options.losetup:
-    	loopdev = subprocess.Popen(['sudo', 'losetup', '-f'], stdout=subprocess.PIPE).communicate()[0]
+    	loopdev = subprocess.Popen(['sudo', 'losetup', '-f'], stdout=subprocess.PIPE).communicate()[0].strip()
     	args += ["disk=['%s,raw,hda,rw']" % loopdev]
     else:
     	args += ["disk=['%s,qcow2,hda,rw']" % options.image_file]
