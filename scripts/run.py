@@ -233,11 +233,16 @@ def start_osv_xen(options):
         "vcpus=%s" % (options.vcpus),
         "maxcpus=%s" % (options.vcpus),
         "name='osv-%d'" % (os.getpid()),
-        "disk=['%s,qcow2,hda,rw']" % options.image_file,
         "serial='pty'",
         "paused=0",
         "on_crash='preserve'"
     ]
+
+    if options.losetup:
+    	loopdev = subprocess.Popen(['sudo', 'losetup', '-f'], stdout=subprocess.PIPE).communicate()[0]
+    	args += ["disk=['%s,raw,hda,rw']" % loopdev]
+    else:
+    	args += ["disk=['%s,qcow2,hda,rw']" % options.image_file]
 
     if options.networking:
         args += ["vif=['bridge=%s']" % (options.bridge)]
@@ -252,8 +257,9 @@ def start_osv_xen(options):
         # Save the current settings of the stty
         stty_save()
 
-        #create a loop device backed by image file
-        # subprocess.call(["losetup", "/dev/loop%s" % os.getpid(), options.image_file])
+        if options.losetup:
+        	#create a loop device backed by image file
+        	subprocess.call(["sudo", "losetup", loopdev, options.image_file])
         # Launch qemu
         cmdline = ["sudo", "xl", "create"]
         if not options.detach:
@@ -267,8 +273,9 @@ def start_osv_xen(options):
         pass
     finally:
         xenfile.close()
-        #delete loop device
-        #subprocess.call(["losetup", "-d", "/dev/loop%s" % os.getpid()])
+        if options.losetup:
+        	#delete loop device
+        	subprocess.call(["sudo", "losetup", "-d", loopdev])
         cleanups()
 
 def start_osv_vmware(options):
@@ -442,6 +449,7 @@ if __name__ == "__main__":
     parser.add_argument("--qemu-path", action="store",
                         default="qemu-system-x86_64",
                         help="specify qemu command path")
+    parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
     cmdargs.image_file = os.path.abspath(cmdargs.image or "build/%s/usr.img" % cmdargs.opt_path)
