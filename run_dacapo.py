@@ -20,20 +20,16 @@ def mkdir(directory, clean=False):
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-def cleanUp(options, procs, stdout, stderr):
+def cleanUp(options, procsAndFiles):
     #Cleanup Scratch Directories
     for i in range(options.numjvms):
         subprocess.Popen(['rm', '-rf', 'scratch%d' % i])
 
-    #Kill Ongoing processes
-    if procs:
-        for proc in procs:
-            proc.kill()
-
-    #Flush and Close the currently open stdout/stderr file
-    if stdout:
+    #Kill Ongoing processes and close the currently open stdout/stderr files
+    while procsAndFiles:
+        proc, stdout, stderr = procsAndFiles.pop()
+        proc.kill()
         stdout.close()
-    if stderr:
         stderr.close()
 
 def parseCpuModel():
@@ -108,11 +104,9 @@ def runCassandra(options):
     while numjvms <= options.numjvms:
         printVerbose(options, "Num JVMs: %d" % numjvms)
         try:
-            procs = []
+            procsAndFiles = []
             outputdir = os.path.join(platformdir, "%s_%djvms" % (options.workload, numjvms))
             mkdir(outputdir, clean=True)
-            stdout = open(os.path.join(outputdir, 'stdout'), 'a')
-            stderr = open(os.path.join(outputdir, 'stderr'), 'a')
             for i in xrange(numjvms):
                 #cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
 
@@ -121,26 +115,30 @@ def runCassandra(options):
                     #cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
                      #       '-e', dacapo_cmd, '-p', 'xen']
 
+                # Open stdout and stderr files to pipe output to
+                stdout = open(os.path.join(outputdir, 'stdout%d' % (i + 1)), 'a')
+                stderr = open(os.path.join(outputdir, 'stderr%d' % (i + 1)), 'a')
+
                 printVerbose(options, " ".join(cmd))
                 if options.stdout:
                     proc = subprocess.Popen(cmd)
                 else:
                     proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                procs.append(proc)
+                procsAndFiles.append((proc, stdout, stderr))
 
-            for proc in procs:
+            while procsAndFiles:
+                proc, stdout, stderr = procsAndFiles.pop()
                 proc.wait()
-                procs.remove(proc)
-            stdout.close()
-            stderr.close()
+                stdout.close()
+                stderr.close()
             heapsize *= 2
         except KeyboardInterrupt as e:
             print "Detecting KeyboardInterrupt: Cleaning up Experiements"
-            cleanUp(options, procs, stdout, stderr)
+            cleanUp(options, procsAndFiles)
             raise e
         numjvms *= 2
 
-    cleanUp(options, procs, stdout, stderr)
+    cleanUp(options, procsAndFiles)
 
 def runDacapo(options):
     if options.xen:
@@ -188,12 +186,10 @@ def runDacapo(options):
             while heapsize <= options.maxheap:
                 try:
                     printVerbose(options, "Heapsize: %dMB" % heapsize)
-                    procs = []
+                    procsAndFiles = []
 
                     outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
                     mkdir(outputdir, clean=True)
-                    stdout = open(os.path.join(outputdir, 'stdout'), 'a')
-                    stderr = open(os.path.join(outputdir, 'stderr'), 'a')
 
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
@@ -210,26 +206,31 @@ def runDacapo(options):
                         if options.xen:
                             cmd = dacapoRunCommand(options, i)
 
+                        # Open stdout and stderr files to pipe output to
+                        stdout = open(os.path.join(outputdir, 'stdout%d' % (i + 1)), 'a')
+                        stderr = open(os.path.join(outputdir, 'stderr%d' % (i + 1)), 'a')
+
                         printVerbose(options, " ".join(cmd))
                         if options.stdout:
                             proc = subprocess.Popen(cmd)
                         else:
                             proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                        procs.append(proc)
+                        procsAndFiles.append((proc, stdout, stderr))
 
-                    for proc in procs:
+                    while procsAndFiles:
+                        proc, stdout, stderr = procsAndFiles.pop()
                         proc.wait()
-                        procs.remove(proc)
-                    stdout.close()
-                    stderr.close()
+                        print "Done"
+                        stdout.close()
+                        stderr.close()
                     heapsize *= 2
-                except (KeyboardInterrupt, CalledProcessError) as e:
+                except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiements"
-                    cleanUp(options, procs, stdout, stderr)
+                    cleanUp(options, procsAndFiles)
                     raise e
             numjvms *= 2
 
-    cleanUp(options, procs, stdout, stderr)
+    cleanUp(options, procsAndFiles)
 
 
 if __name__ == "__main__":
