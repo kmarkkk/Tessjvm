@@ -8,7 +8,6 @@ import shutil
 import subprocess
 
 ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
-EXPERIMENT = "dacapo"
 
 def printVerbose(options, statement):
     if options.verbose:
@@ -66,6 +65,83 @@ def dacapoRunCommand(options, i):
         cmd += ['-l']
     return cmd
 
+def runCassandra(options):
+    # Check for ycsb and cassandra home.
+    if not options.ycsb_home or not os.path.exists(options.ycsb_home):
+        raise Exception("Invalid ycsb home %s" % options.ycsb_home)
+    if not options.cassandra_home or not os.path.exists(options.cassandra_home):
+        raise Exception("Invalid cassandra home %s" % options.cassandra_home)
+    if not options.workload or not os.path.exists(options.workload):
+        raise Exception("Invalid workload file %s" % options.workload)
+
+
+    if options.xen:
+        if options.gangscheduled:
+            platform = "xen_gangscheduled"
+        else:
+            platform = "xen"
+    else:
+        platform = "linux"
+
+    # Build the Directory Structure
+    resultsdir = options.resultsdir
+    experimentdir = os.path.join(resultsdir, options.test)
+    platformdir = os.path.join(experimentdir, platform)
+
+    mkdir(resultsdir)
+    mkdir(experimentdir)
+    mkdir(platformdir)
+
+    # Save experiement system state (revision #, env vars, timestamp, benchmark(s) run)
+    sys_state = dict()
+    sys_state['git_revision'] = subprocess.Popen(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE).communicate()[0]
+    sys_state['env_vars'] = dict(os.environ)
+    #sys_state['benchmarks'] = benchmarks
+    sys_state['CPU'] = parseCpuModel()
+    sys_state['Memory'] = parseMemory()
+    sys_state_file = open(os.path.join(platformdir, 'sys_state_%s.json' % datetime.datetime.now().isoformat()), 'w')
+    json.dump(sys_state, sys_state_file, sort_keys=True, indent=4, separators=(',', ': '))
+    sys_state_file.close()
+
+    # Run Benchmarks under various numbers of JVMS and Heap Sizes
+    numjvms = 1
+    while numjvms <= options.numjvms:
+        printVerbose(options, "Num JVMs: %d" % numjvms)
+        try:
+            procs = []
+            outputdir = os.path.join(platformdir, "%s_%djvms" % (options.workload, numjvms))
+            mkdir(outputdir, clean=True)
+            stdout = open(os.path.join(outputdir, 'stdout'), 'a')
+            stderr = open(os.path.join(outputdir, 'stderr'), 'a')
+            for i in xrange(numjvms):
+                #cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
+
+                #if options.xen:
+                    #dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
+                    #cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
+                     #       '-e', dacapo_cmd, '-p', 'xen']
+
+                printVerbose(options, " ".join(cmd))
+                if options.stdout:
+                    proc = subprocess.Popen(cmd)
+                else:
+                    proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
+                procs.append(proc)
+
+            for proc in procs:
+                proc.wait()
+                procs.remove(proc)
+            stdout.close()
+            stderr.close()
+            heapsize *= 2
+        except KeyboardInterrupt as e:
+            print "Detecting KeyboardInterrupt: Cleaning up Experiements"
+            cleanUp(options, procs, stdout, stderr)
+            raise e
+        numjvms *= 2
+
+    cleanUp(options, procs, stdout, stderr)
+
 def runDacapo(options):
     if options.xen:
         if options.gangscheduled:
@@ -77,7 +153,7 @@ def runDacapo(options):
 
     # Build the Directory Structure
     resultsdir = options.resultsdir
-    experimentdir = os.path.join(resultsdir, EXPERIMENT)
+    experimentdir = os.path.join(resultsdir, options.test)
     platformdir = os.path.join(experimentdir, platform)
 
     mkdir(resultsdir)
@@ -159,6 +235,7 @@ def runDacapo(options):
 if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(prog='run')
+    parser.add_argument("-t", "--test", action="store", default="dacapo", help="choose test to run: dacapo, cassandra")
     parser.add_argument("-b", "--benchmark", action="store", default="all", help="which dacapo benchmarks to run")
     parser.add_argument("--startjvms", action="store", default=1, type=int, help="starting amount of JVM's to test on")
     parser.add_argument("-n", "--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
@@ -174,8 +251,16 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--memsize", action="store", default="2G", help="specify memory: ex. 1G, 2G, ...")
     parser.add_argument("-c", "--vcpus", action="store", default="4", help="specify number of vcpus")
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
-    cmdargs = parser.parse_args()
+    parser.add_argument("--ycsb-home", action="store", default="", help="path to the ycsb home")
+    parser.add_argument("--cassandra-home", action="store", default="", help="path to the cassandra home")
+    parser.add_argument("--workload", action="store", default="", help="the workload file to run by ycsb")
     
-    runDacapo(cmdargs)
+    cmdargs = parser.parse_args()
+    if cmdargs.test == "dacapo":
+        runDacapo(cmdargs)
+    elif cmdargs.test == "cassandra":
+        runCassandra(cmdargs)
+    else:
+        raise Exception("Uknown test %s" % cmdargs.test)
 
 
