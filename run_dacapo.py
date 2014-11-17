@@ -119,6 +119,8 @@ def runDacapo(options):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
                             cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
                                     '-e', dacapo_cmd, '-p', 'xen']
+                            if options.losetup:
+                                cmd += ['-l']
 
                         printVerbose(options, " ".join(cmd))
                         if options.stdout:
@@ -157,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--image", action="store", default=None, help="location of the osv image with dacapo on it")
     parser.add_argument("-m", "--memsize", action="store", default="2G", help="specify memory: ex. 1G, 2G, ...")
     parser.add_argument("-c", "--vcpus", action="store", default="4", help="specify number of vcpus")
+    parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     cmdargs = parser.parse_args()
     
     runDacapo(cmdargs)
