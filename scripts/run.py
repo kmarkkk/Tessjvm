@@ -379,7 +379,8 @@ def choose_hypervisor(external_networking):
 
 def main(options):
     set_imgargs(options)
-    start_osv(options)
+    if not options.set_image_only:
+        start_osv(options)
 
 if __name__ == "__main__":
     # Parse arguments
@@ -450,6 +451,7 @@ if __name__ == "__main__":
                         default="qemu-system-x86_64",
                         help="specify qemu command path")
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
+    parser.add_argument("--set-image-only", action="store_true", default=False, help="Whether or not to only set the image arguments")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
     cmdargs.image_file = os.path.abspath(cmdargs.image or "build/%s/usr.img" % cmdargs.opt_path)

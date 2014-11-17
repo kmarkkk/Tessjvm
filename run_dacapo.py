@@ -60,6 +60,12 @@ def parseMemory():
         return "Unknown"
     return "Unknown"
 
+def dacapoRunCommand(options, i):
+    cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i + 1), "-m", options.memsize, "-c", options.vcpus, '-p', 'xen']
+    if options.losetup:
+        cmd += ['-l']
+    return cmd
+
 def runDacapo(options):
     if options.xen:
         if options.gangscheduled:
@@ -112,15 +118,21 @@ def runDacapo(options):
                     mkdir(outputdir, clean=True)
                     stdout = open(os.path.join(outputdir, 'stdout'), 'a')
                     stderr = open(os.path.join(outputdir, 'stderr'), 'a')
+
+                    # If using xen, set the new image execute line first before running the image
+                    if options.xen:
+                        for i in range(numjvms):
+                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
+                            cmd = dacapoRunCommand(options, i)
+                            cmd += ['-e', dacapo_cmd, '--set-image-only']
+                            printVerbose(options, " ".join(cmd))
+                            subprocess.check_call(cmd)
+
                     for i in range(numjvms):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
 
                         if options.xen:
-                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
-                            cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i + 1), "-m", options.memsize, "-c", options.vcpus, 
-                                    '-e', dacapo_cmd, '-p', 'xen']
-                            if options.losetup:
-                                cmd += ['-l']
+                            cmd = dacapoRunCommand(options, i)
 
                         printVerbose(options, " ".join(cmd))
                         if options.stdout:
@@ -135,7 +147,7 @@ def runDacapo(options):
                     stdout.close()
                     stderr.close()
                     heapsize *= 2
-                except KeyboardInterrupt as e:
+                except (KeyboardInterrupt, CalledProcessError) as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiements"
                     cleanUp(options, procs, stdout, stderr)
                     raise e
