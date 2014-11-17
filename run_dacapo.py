@@ -99,10 +99,10 @@ def runDacapo(options):
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
-        numjvms = 1
+        numjvms = options.startjvms
         while numjvms <= options.numjvms:
             printVerbose(options, "Num JVMs: %d" % numjvms)
-            heapsize = 128
+            heapsize = options.startheap
             while heapsize <= options.maxheap:
                 try:
                     printVerbose(options, "Heapsize: %dMB" % heapsize)
@@ -148,9 +148,11 @@ if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(prog='run')
     parser.add_argument("-b", "--benchmark", action="store", default="all", help="which dacapo benchmarks to run")
+    parser.add_argument("--startjvms", action="store", default=1, type=int, help="starting amount of JVM's to test on")
     parser.add_argument("-n", "--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
     parser.add_argument("-d", "--dacapo", action="store", default="dacapo-9.12-bach.jar", help="where dacapo is located")
     parser.add_argument("-r", "--resultsdir", action="store", help="where to store results")
+    parser.add_argument("--startheap", action="store", default=128, type=int, help="starting heap size")
     parser.add_argument("-p", "--maxheap", action="store", type=int, default=4096, help="max heap size")
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help="be more verbose")
     parser.add_argument("-s", "--stdout", action="store_true", default=False, help="Output to stdout rather than to results dir")
