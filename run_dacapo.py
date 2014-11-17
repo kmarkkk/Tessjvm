@@ -117,7 +117,7 @@ def runDacapo(options):
 
                         if options.xen:
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
-                            cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
+                            cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i), "-m", options.memsize, "-c", options.vcpus, 
                                     '-e', dacapo_cmd, '-p', 'xen']
                             if options.losetup:
                                 cmd += ['-l']
