@@ -61,6 +61,19 @@ def dacapoRunCommand(options, i):
         cmd += ['-l']
     return cmd
 
+def parseMemsize(memory):
+    if memory[-1:].upper() == "M":
+        memory = int(memory[:-1])
+    elif memory[-2:].upper() == "MB":
+        memory = int(memory[:-2])
+    elif memory[-1:].upper() == "G":
+        memory = 1024 * int(memory[:-1])
+    elif memory[-2:].upper() == "GB":
+        memory = 1024 * int(memory[:-2])
+    else:
+        raise SyntaxError
+    return memory
+
 def runCassandra(options):
     # Check for ycsb and cassandra home.
     if not options.ycsb_home or not os.path.exists(options.ycsb_home):
@@ -165,25 +178,31 @@ def runDacapo(options):
         assert options.benchmark in ALL_BENCHMARKS
         benchmarks = [options.benchmark]
 
-    # Save experiement system state (revision #, env vars, timestamp, benchmark(s) run)
+    # Save experiment system state (revision #, env vars, timestamp, benchmark(s) run)
     sys_state = dict()
     sys_state['git_revision'] = subprocess.Popen(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE).communicate()[0]
     sys_state['env_vars'] = dict(os.environ)
-    sys_state['benchmarks'] = benchmarks
+    sys_state['options'] = dict(vars(options))
     sys_state['CPU'] = parseCpuModel()
     sys_state['Memory'] = parseMemory()
     sys_state_file = open(os.path.join(platformdir, 'sys_state_%s.json' % datetime.datetime.now().isoformat()), 'w')
     json.dump(sys_state, sys_state_file, sort_keys=True, indent=4, separators=(',', ': '))
     sys_state_file.close()
 
+    #Loading Min Heap Sizes
+    with open("dacapo_min_heap.json") as f:
+        minheaps = json.load(f)
+
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
+    procsAndFiles = None
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
         numjvms = options.startjvms
         while numjvms <= options.numjvms:
             printVerbose(options, "Num JVMs: %d" % numjvms)
-            heapsize = options.startheap
-            while heapsize <= options.maxheap:
+            heapsize = max(options.startheap, minheaps[benchmark])
+            maxheap = min(options.maxheap, parseMemsize(options.memsize) / numjvms)
+            while heapsize <= maxheap:
                 try:
                     printVerbose(options, "Heapsize: %dMB" % heapsize)
                     procsAndFiles = []
@@ -220,7 +239,6 @@ def runDacapo(options):
                     while procsAndFiles:
                         proc, stdout, stderr = procsAndFiles.pop()
                         proc.wait()
-                        print "Done"
                         stdout.close()
                         stderr.close()
                     heapsize *= 2
