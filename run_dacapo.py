@@ -55,7 +55,7 @@ def parseMemory():
         return "Unknown"
     return "Unknown"
 
-def dacapoRunCommand(options, i):
+def dacapoXenRunCommand(options, i):
     cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i + 1), "-m", options.memsize, "-c", options.vcpus, '-p', 'xen']
     if options.losetup:
         cmd += ['-l']
@@ -73,6 +73,14 @@ def parseMemsize(memory):
     else:
         raise SyntaxError
     return memory
+
+def getDacapoConvergences():
+    try:
+        with open('dacapo_convergences.json', 'r') as f: 
+            return json.load(f)
+    except IOError:
+        subprocess.call(["./dacapo_converge.py", '-d', options.dacapo])
+        return getDacapoConvergences()
 
 def runCassandra(options):
     # Check for ycsb and cassandra home.
@@ -193,10 +201,14 @@ def runDacapo(options):
     with open("dacapo_min_heap.json") as f:
         minheaps = json.load(f)
 
+    #Loading Dacapo Convergences
+    convergences = getDacapoConvergences()
+
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     procsAndFiles = None
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
+        numBenchmarkIterations = str(convergences[benchmark] + 5)
         numjvms = options.startjvms
         while numjvms <= options.numjvms:
             printVerbose(options, "Num JVMs: %d" % numjvms)
@@ -213,17 +225,17 @@ def runDacapo(options):
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
                         for i in range(numjvms):
-                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
-                            cmd = dacapoRunCommand(options, i)
+                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
+                            cmd = dacapoXenRunCommand(options, i)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
                             subprocess.check_call(cmd)
 
                     for i in range(numjvms):
-                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
+                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", numBenchmarkIterations, benchmark]
 
                         if options.xen:
-                            cmd = dacapoRunCommand(options, i)
+                            cmd = dacapoXenRunCommand(options, i)
 
                         # Open stdout and stderr files to pipe output to
                         stdout = open(os.path.join(outputdir, 'stdout%d' % (i + 1)), 'a')
