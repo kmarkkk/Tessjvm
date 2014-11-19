@@ -55,8 +55,9 @@ def parseMemory():
         return "Unknown"
     return "Unknown"
 
-def dacapoXenRunCommand(options, i):
-    cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i + 1), "-m", options.memsize, "-c", options.vcpus, '-p', 'xen']
+def dacapoXenRunCommand(options, i, heapsize):
+    OSV_SLACK = 256 #256MB
+    cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i + 1), "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen']
     if options.losetup:
         cmd += ['-l']
     return cmd
@@ -226,7 +227,7 @@ def runDacapo(options):
                     if options.xen:
                         for i in range(numjvms):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
-                            cmd = dacapoXenRunCommand(options, i)
+                            cmd = dacapoXenRunCommand(options, i, heapsize)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
                             subprocess.check_call(cmd)
@@ -235,7 +236,7 @@ def runDacapo(options):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", numBenchmarkIterations, benchmark]
 
                         if options.xen:
-                            cmd = dacapoXenRunCommand(options, i)
+                            cmd = dacapoXenRunCommand(options, i, heapsize)
 
                         # Open stdout and stderr files to pipe output to
                         stdout = open(os.path.join(outputdir, 'stdout%d' % (i + 1)), 'a')
