@@ -1,15 +1,5 @@
 #!/usr/bin/env python
 
-# Usage of cassandra.py script:
-# Need to run within a salloc allocation.
-# 
-# setup: Download and install Cassandra into a shared directory.
-# start: Start a Cassandra cluster.
-# stop: Stop the Cassandra cluster.
-
-# Contributors:
-# Martin Maas <maas@eecs.berkeley.edu> (2014)
-
 import argparse
 import getpass
 import os
@@ -23,8 +13,6 @@ import atexit
 import json
 
 run_timestamp = time.time()
-
-# -------------------------------------------------------------------------------------------------
 
 # Alias for loopback.
 localIps = []
