@@ -236,7 +236,7 @@ def start_osv_xen(options):
         "serial='pty'",
         "paused=0",
         "on_crash='preserve'",
-        "cpus=%s" % (options.cpus)
+        "cpus='%s'" % (options.cpus)
     ]
 
     if options.losetup:
@@ -453,7 +453,7 @@ if __name__ == "__main__":
                         help="specify qemu command path")
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     parser.add_argument("--set-image-only", action="store_true", default=False, help="Whether or not to only set the image arguments")
-    parser.add_argument("--cpus", action="store_true", default="0-11", help="Which CPU's to pin to for Xen")
+    parser.add_argument("-a", "--cpus", action="store_true", default="0-11", help="Which CPU's to pin to for Xen")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
     cmdargs.image_file = os.path.abspath(cmdargs.image or "build/%s/usr.img" % cmdargs.opt_path)
