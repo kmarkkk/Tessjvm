@@ -34,7 +34,8 @@ def cleanUp(options, procsAndFiles):
         stderr.close()
 
     #Remove OSV Image Directory
-    shutil.rmtree(OSV_IMAGE_DIR)
+    if options.xen
+        shutil.rmtree(OSV_IMAGE_DIR)
 
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
