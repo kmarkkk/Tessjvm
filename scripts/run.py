@@ -465,7 +465,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     parser.add_argument("--set-image-only", action="store_true", default=False, help="Whether or not to only set the image arguments")
     parser.add_argument("-a", "--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
-    paraser.add_argument("--early-destroy", action="store_true", default=False, help="Whether or not to preemptively destroy a Xen domain (for dacapo)")
+    parser.add_argument("--early-destroy", action="store_true", default=False, help="Whether or not to preemptively destroy a Xen domain (for dacapo)")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
     cmdargs.image_file = os.path.abspath(cmdargs.image or "build/%s/usr.img" % cmdargs.opt_path)
