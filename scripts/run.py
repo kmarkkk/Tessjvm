@@ -5,6 +5,7 @@ import sys
 import argparse
 import os
 import tempfile
+import time
 import errno
 import re
 
@@ -269,7 +270,17 @@ def start_osv_xen(options):
         if options.dry_run:
             print(format_args(cmdline))
         else:
-            subprocess.call(cmdline)
+            if options.early_destroy:
+                proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE)
+                while proc.poll() is None:
+                    output = proc.stdout.readline()
+                    print(output, end="")
+                    if "PASSED" in output:
+                        #Wait 10 Seconds and then destroy the domain
+                        time.sleep(10)
+                        subprocess.call(["sudo", "xl", "destroy", "osv-%d" % os.getpid()])
+            else:
+                subprocess.call(cmdline)
     except:
         pass
     finally:
@@ -454,6 +465,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     parser.add_argument("--set-image-only", action="store_true", default=False, help="Whether or not to only set the image arguments")
     parser.add_argument("-a", "--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
+    paraser.add_argument("--early-destroy", action="store_true", default=False, help="Whether or not to preemptively destroy a Xen domain (for dacapo)")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
     cmdargs.image_file = os.path.abspath(cmdargs.image or "build/%s/usr.img" % cmdargs.opt_path)
