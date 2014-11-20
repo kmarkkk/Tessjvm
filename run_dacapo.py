@@ -39,7 +39,7 @@ def cleanUp(options, procsAndFiles):
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
     basename = os.path.basename(options.image)
-    for i in range numCopies:
+    for i in range(numCopies):
         image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
         subprocess.call(['cp', options.image, image_path])
 
@@ -70,7 +70,7 @@ def dacapoXenRunCommand(options, i, heapsize):
     OSV_SLACK = 256 #256MB
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
-    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen']
+    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen', '--cpus=%s' % options.cpu]
     if options.losetup:
         cmd += ['-l']
     return cmd
@@ -301,6 +301,7 @@ if __name__ == "__main__":
     parser.add_argument("--ycsb-home", action="store", default="", help="path to the ycsb home")
     parser.add_argument("--cassandra-home", action="store", default="", help="path to the cassandra home")
     parser.add_argument("--workload", action="store", default="", help="the workload file to run by ycsb")
+    parser.add_argument("--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
