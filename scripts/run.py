@@ -271,7 +271,7 @@ def start_osv_xen(options):
             proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE)
             while proc.poll() is None:
                 output = proc.stdout.readline()
-                print(output)
+                print(output, end="")
     except:
         pass
     finally:
