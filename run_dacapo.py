@@ -301,7 +301,7 @@ if __name__ == "__main__":
     parser.add_argument("--ycsb-home", action="store", default="", help="path to the ycsb home")
     parser.add_argument("--cassandra-home", action="store", default="", help="path to the cassandra home")
     parser.add_argument("--workload", action="store", default="", help="the workload file to run by ycsb")
-    parser.add_argument("--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
+    parser.add_argument("-a", "--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
