@@ -141,26 +141,24 @@ def do_start(args):
 		my_data_dir = data_dir + '/' + nodeName
 
 		# Change working directoreis
-		my_cassandra_yaml = re.sub('(commitlog_directory:).*$', \
-			'\g<1> ' + my_commitlog_dir, cassandra_yaml, \
-			flags=re.MULTILINE)
+		my_cassandra_yaml = re.sub(re.compile('(commitlog_directory:).*$', flags=re.MULTILINE), \
+			'\g<1> ' + my_commitlog_dir, cassandra_yaml
+			)
 
-		my_cassandra_yaml = re.sub('(saved_caches_directory:).*$', \
-			'\g<1> ' + my_saved_caches_dir, my_cassandra_yaml, \
-			flags=re.MULTILINE)
+		my_cassandra_yaml = re.sub(re.compile('(saved_caches_directory:).*$', flags=re.MULTILINE), \
+			'\g<1> ' + my_saved_caches_dir, my_cassandra_yaml)
 
-		my_cassandra_yaml = re.sub('(data_file_directories:.*?\- ).*?$', \
+		my_cassandra_yaml = re.sub(re.compile('(data_file_directories:.*?\- ).*?$', flags=re.MULTILINE|re.DOTALL), \
 		#my_cassandra_yaml = re.sub('(data_file_directories:).*?$', \
-			'\g<1>' + my_data_dir, my_cassandra_yaml, \
-			flags=re.MULTILINE|re.DOTALL)
+			'\g<1>' + my_data_dir, my_cassandra_yaml)
 
-		my_cassandra_yaml = re.sub('(listen_address:).*$', \
-			'\g<1> ' + myip, my_cassandra_yaml, \
-			flags=re.MULTILINE)
+		my_cassandra_yaml = re.sub(re.compile('(listen_address:).*$', flags=re.MULTILINE), \
+			'\g<1> ' + myip, my_cassandra_yaml
+			)
 
-		my_cassandra_yaml = re.sub('(rpc_address:).*$', \
-			'\g<1> ' + myip, my_cassandra_yaml, \
-			flags=re.MULTILINE)
+		my_cassandra_yaml = re.sub(re.compile('(rpc_address:).*$', flags=re.MULTILINE), \
+			'\g<1> ' + myip, my_cassandra_yaml
+			)
 
 		# my_cassandra_yaml = re.sub('(storage_port:).*$', \
 		# 	'\g<1> ' + str(storagePort + nodeIndex), my_cassandra_yaml, \
@@ -185,16 +183,15 @@ def do_start(args):
 		# Update seeds
 		seeds_string = ','.join(localIps[:args.num_nodes])
 		#seeds_string = localIps[0]
-		my_cassandra_yaml = re.sub('(- seeds:).*$', \
-			'\g<1> "' + seeds_string + '"', my_cassandra_yaml, \
-			flags=re.MULTILINE)
+		my_cassandra_yaml = re.sub(re.compile('(- seeds:).*$',flags=re.MULTILINE), \
+			'\g<1> "' + seeds_string + '"', my_cassandra_yaml
+			)
 
 		with open(myconfdir + '/conf/cassandra.yaml', 'w') as fyaml:
 			fyaml.write(my_cassandra_yaml)
 
-		my_cassandraenv_yaml = re.sub('^(JMX_PORT=).*$', \
-			'\g<1>"' + str(jmxPort + nodeIndex) + '"', cassandraenv_yaml, \
-			flags=re.MULTILINE)
+		my_cassandraenv_yaml = re.sub(re.compile('^(JMX_PORT=).*$', flags=re.MULTILINE), \
+			'\g<1>"' + str(jmxPort + nodeIndex) + '"', cassandraenv_yaml)
 
 		with open(myconfdir + '/conf/cassandra-env.sh', 'w') as fyaml:
 			fyaml.write(my_cassandraenv_yaml)
