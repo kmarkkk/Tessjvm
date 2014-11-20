@@ -268,10 +268,7 @@ def start_osv_xen(options):
         if options.dry_run:
             print(format_args(cmdline))
         else:
-            proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE)
-            while proc.poll() is None:
-                output = proc.stdout.readline()
-                print(output, end="")
+            subprocess.call(cmdline)
     except:
         pass
     finally:
