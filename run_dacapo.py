@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
+OSV_IMAGE_DIR = "osv_images"
 
 def printVerbose(options, statement):
     if options.verbose:
@@ -31,6 +32,16 @@ def cleanUp(options, procsAndFiles):
         proc.kill()
         stdout.close()
         stderr.close()
+
+    #Remove OSV Image Directory
+    shutil.rmtree(OSV_IMAGE_DIR)
+
+def makeOSvImageCopies(options, numCopies):
+    mkdir(OSV_IMAGE_DIR)
+    basename = os.path.basename(options.image)
+    for i in range numCopies:
+        image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
+        subprocess.call(['cp', options.image, image_path])
 
 def parseCpuModel():
     #Adapted from http://amitsaha.github.io/site/notes/articles/python_linux/article.html
@@ -57,7 +68,9 @@ def parseMemory():
 
 def dacapoXenRunCommand(options, i, heapsize):
     OSV_SLACK = 256 #256MB
-    cmd = ["./scripts/run.py", "-i", "%s_%d" % (options.image, i + 1), "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen']
+    basename = os.path.basename(options.image)
+    image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
+    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen']
     if options.losetup:
         cmd += ['-l']
     return cmd
@@ -225,6 +238,8 @@ def runDacapo(options):
 
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
+                        # First create the image copies
+                        makeOSvImageCopies(options, numjvms)
                         for i in range(numjvms):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
                             cmd = dacapoXenRunCommand(options, i, heapsize)
