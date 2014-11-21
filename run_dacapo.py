@@ -255,8 +255,8 @@ def runDacapo(options):
                             cmd = dacapoXenRunCommand(options, i, heapsize)
 
                         # Open stdout and stderr files to pipe output to
-                        stdout = open(os.path.join(outputdir, 'stdout%d' % (i + 1)), 'a')
-                        stderr = open(os.path.join(outputdir, 'stderr%d' % (i + 1)), 'a')
+                        stdout = open(os.path.join(outputdir, 'stdout%02d' % (i + 1)), 'a')
+                        stderr = open(os.path.join(outputdir, 'stderr%02d' % (i + 1)), 'a')
 
                         printVerbose(options, " ".join(cmd))
                         if options.stdout:
