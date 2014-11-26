@@ -2,66 +2,79 @@
 
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 import re
 import argparse
+from collections import defaultdict
 
 RESULTS_DIR='results_iter1'
 DACAPO_DIR='dacapo'
 DACAPO_BENCHMARKS = ['avrora', 'h2', 'jython', 'luindex', 'lusearch', 'xalan']
 
 def parse_benchmark(benchmark, benchmark_experiments, os_type):
-  print
-  print "#"*50
-  print "Parsing runtime results for %d %s experiments" % (len(benchmark), benchmark)
-  print "#"*50
-  print
+  print "Parsing runtime results for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
 
-  runtime_results = parse_runtime_results(benchmark, benchmark_experiments)
+  runtime_results = parse_runtime_results(benchmark, benchmark_experiments, os_type)
 
-  print runtime_results
-  xs, ys, zs = [list(tuple_vector) for tuple_vector in zip(*sorted(runtime_results, key=lambda t: -t[0]))]
-  
+  # Initialize values we'll need for the x-axis
+  all_memory_sizes = [128, 256, 512, 1024, 2048, 4096]
+  xs = range(1,len(all_memory_sizes)+1)
+  # These offset the bar series from each other. Designed for 5 bar series.
+  bar_width = 0.1
+  offset = -0.2
 
-  #ax = plt.subplot(111)
-  #ax.bar([x - 0.1 for x in xs], ys, width=0.2, color="b", align="center", log=True)
-  #ax.bar([x + 0.1 for x in xs], zs, width=0.2, color="g", align="center", log=True)
-  #plt.show()
-  
-  return
+  # Colors for successive bar series
+  color_iter = iter(['b', 'g', 'r', 'c', 'm', 'y'])
 
-# Extract just the average run time for each experiment
-def parse_runtime_results(benchmark, benchmark_experiments):
-  # Returns list of tuples of the form (num_jvms, mem_size, avg_runtime_ms)
-  results = []
+  ax = plt.subplot(111)
+  # Add an extra entry to the x-axis so we can see all of the experiments
+  ax.set_xlim(0, len(all_memory_sizes)+1)
+
+  for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
+    avg_runtimes = [memsize_to_results[memsize] for memsize in all_memory_sizes]
+    ax.bar([x + offset for x in xs], avg_runtimes, width=bar_width, color=next(color_iter), align="center", label="%d JVMs" % jvm_count)
+    offset += bar_width
+
+  # Apply labels
+  plt.title(" %s Mean Run Times" % benchmark)
+  plt.ylabel("Runtime (ms)")
+  plt.xlabel("Memory Size")
+  plt.xticks(xs, map(lambda v: str(v)+"MB", all_memory_sizes))
+  plt.legend()
+
+  # Show the plot
+  plt.show()
+
+def parse_runtime_results(benchmark, benchmark_experiments, os_type):
+  # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
+  jvms_to_results = defaultdict(lambda : defaultdict(int))
   for exp in benchmark_experiments:
     benchmark, num_jvms, mem_size = re.search("([a-zA-Z0-9]*)_(\d+)jvms_(\d+)MB$", exp).groups()
     num_jvms, mem_size = int(num_jvms), int(mem_size)
 
-    # Get the average run time
     exp_path = "/".join([RESULTS_DIR, DACAPO_DIR, os_type, exp])
-    cur_times = []
 
+    exp_times = []
     for jvm in range(1, num_jvms+1):
-      # Runtimes are logged in the stderr files
-      filename = "/".join([exp_path, "stderr%d" % jvm])
+      # Runtimes are logged in the stderr files on linux and stout files on xen
+      if os_type == "xen":
+        filename = "/".join([exp_path, "stdout%d" % jvm])
+      else:
+        filename = "/".join([exp_path, "stderr%d" % jvm])
       with open(filename, 'r') as f:
         contents = f.read()
-        all_times = map(int, re.findall(".*in (\d+) msec", contents))
-        # We use the last five runs 
-        run_times = all_times[-5:]
-        mean_time = float(sum(run_times))/len(all_times)
-        cur_times.append(mean_time)
+        all_per_jvm_times = map(int, re.findall("%s .* in (\d+) msec" % benchmark, contents))
+        # We always look at the last five runs for each JVM in this experiment
+        per_jvm_times = all_per_jvm_times[-5:]
+        if len(per_jvm_times) < 5:
+          print "Unable to find 5 valid runtimes for %s" % exp
+          continue
+      # We'll use the mean
+      exp_times.append(np.mean(per_jvm_times))
 
-    results.append((num_jvms, mem_size, float(sum(cur_times))/len(cur_times)))
-  return results
+    jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
 
-def plot_line(x_vec, y_vec, xlabel, ylabel, title):
-  plt.figure()
-  plt.plot(x_vec, y_vec)
-  plt.xlabel(xlabel)
-  plt.ylabel(ylabel)
-  plt.title(title)
-  plt.show()
+  return jvms_to_results
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(prog='run')
