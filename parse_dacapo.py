@@ -36,7 +36,7 @@ def parse_benchmark(benchmark, benchmark_experiments, os_type):
     offset += bar_width
 
   # Apply labels
-  plt.title(" %s Mean Run Times" % benchmark)
+  plt.title("%s Mean Run Times" % benchmark)
   plt.ylabel("Runtime (ms)")
   plt.xlabel("Memory Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", all_memory_sizes))
@@ -71,7 +71,7 @@ def parse_runtime_results(benchmark, benchmark_experiments, os_type):
           continue
       # We'll use the mean
       exp_times.append(np.mean(per_jvm_times))
-
+    # To find standard deviation for each experiment, call "np.std(exp_times)" here
     jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
 
   return jvms_to_results
