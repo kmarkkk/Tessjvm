@@ -247,7 +247,7 @@ def start_osv_xen(options):
     	args += ["disk=['%s,qcow2,hda,rw']" % options.image_file]
 
     if options.networking:
-        args += ["vif=['bridge=%s']" % (options.bridge)]
+        args += ["vif=['mac=%s,bridge=%s']" % (options.mac,options.bridge)]
 
     # Using xm would allow us to get away with creating the file, but it comes
     # with its set of problems as well. Stick to xl.
