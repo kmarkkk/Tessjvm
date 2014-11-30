@@ -84,13 +84,16 @@ def shutdown_cassandra_instances():
 def do_start(args):
 
 	# Init all path variables.
-	basedir = os.getcwd() + '/cassandra_cluster'
+	if hasattr(args, 'basedir')	:
+		basedir = os.path.join(args.basedir, 'cassandra_cluster')
+	else:
+		basedir = os.path.join(os.getcwd(), 'cassandra_cluster')
 	make_dir(basedir)
 	print '> Running cassandra test on base dir ' + basedir
 	# outdir = '/nscratch/' + getpass.getuser() + '/cassandra'
-	workdir = basedir + '/work'
-	rundir = workdir + '/cassandra-' +  datetime.datetime.fromtimestamp(run_timestamp). \
-		strftime('%Y-%m-%d-%H-%M-%S')
+	workdir = os.path.join(basedir, 'work')
+	rundir = workdir# + '/cassandra-' +  datetime.datetime.fromtimestamp(run_timestamp). \
+	#	strftime('%Y-%m-%d-%H-%M-%S')
 
 	instance_json = rundir + '/cassandra.json'
 
@@ -241,6 +244,7 @@ def do_start(args):
 			cassandra_instances['node' + str(nodeIndex)] = {'process': p, 'out': myoutfile, 'err': myerrfile}
 
 	# When exiting, make sure all children are terminated cleanly
+	#if not hasattr(args, 'nosleep'):
 	atexit.register(shutdown_cassandra_instances)
 
 	print '>'
@@ -271,26 +275,29 @@ def do_start(args):
 
 	print '>'
 	print '> ALL NODES ARE UP! TERMINATE THIS PROCESS TO SHUT DOWN CASSANDRA CLUSTER.'
-	while True:
-		time.sleep(0.5)
+	if hasattr(args, 'nosleep'):
+		return cassandra_instances
+	else:
+		while True:
+			time.sleep(0.5)
 
 # -------------------------------------------------------------------------------------------------
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description='Run script for running multiple Cassandra nodes on a single machine.')
+	parser.add_argument('action', nargs=1, help='the action to perform (setup|start|stop)')
+	parser.add_argument('-c', '--cassandra-home', action="store", help='the path to the cassandra home)')
+	parser.add_argument('-nc', "--num-clusters", action="store", default=1, type=int, help="the number of clusters to run")
+	parser.add_argument('-nn', "--num-nodes", action="store", default=1, type=int, help="the number of nodes per cluster")
 
-parser = argparse.ArgumentParser(description='Run script for running multiple Cassandra nodes on a single machine.')
-parser.add_argument('action', nargs=1, help='the action to perform (setup|start|stop)')
-parser.add_argument('-c', '--cassandra-home', action="store", help='the path to the cassandra home)')
-parser.add_argument('-nc', "--num-clusters", action="store", default=1, type=int, help="the number of clusters to run")
-parser.add_argument('-nn', "--num-nodes", action="store", default=1, type=int, help="the number of nodes per cluster")
+	args = parser.parse_args()
 
-args = parser.parse_args()
+	print '> COMMAND = ' + str(args.action)
 
-print '> COMMAND = ' + str(args.action)
+	print args
 
-print args
-
-if args.action[0] == 'setup':
-	do_setup()
-elif args.action[0] == 'start':
-	do_start(args)
-else:
-	print '[ERROR] Unknown action \'' + args.action[0] + '\''
+	if args.action[0] == 'setup':
+		do_setup()
+	elif args.action[0] == 'start':
+		do_start(args)
+	else:
+		print '[ERROR] Unknown action \'' + args.action[0] + '\''
