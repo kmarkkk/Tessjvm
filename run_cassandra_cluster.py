@@ -70,9 +70,10 @@ def shutdown_cassandra_instances():
 	print cassandra_instances
 	for c in cassandra_instances.values():
 		c['process'].terminate()
+		#c['process'].kill()
 
 	print '> Waiting for processes to terminate...'
-	all_done = True
+	all_done = False
 	while not all_done:
 		all_done = True
 		for c in cassandra_instances.values():
@@ -95,7 +96,7 @@ def do_start(args):
 	rundir = workdir# + '/cassandra-' +  datetime.datetime.fromtimestamp(run_timestamp). \
 	#	strftime('%Y-%m-%d-%H-%M-%S')
 
-	instance_json = rundir + '/cassandra.json'
+	instance_json = os.path.join(rundir, 'cassandra.json')
 
 	# network_if = 'eth0'
 	# Add all the ip alias. They may need to be pre-configured.
@@ -108,10 +109,10 @@ def do_start(args):
 	cassandra_home = args.cassandra_home 
 
 	local_dir = basedir
-	saved_caches_dir = local_dir + '/saved_caches'
-	commitlog_dir = local_dir + '/log'
-	data_dir = local_dir + '/data'
-	logfile = local_dir + '/system.log'
+	saved_caches_dir = os.path.join(local_dir, 'saved_caches')
+	commitlog_dir = os.path.join(local_dir, 'log')
+	data_dir = os.path.join(local_dir, 'data')
+	logfile = os.path.join(local_dir,'system.log')
 	make_dir(saved_caches_dir)
 	make_dir(commitlog_dir)
 	make_dir(data_dir)
@@ -119,12 +120,12 @@ def do_start(args):
 
 	print '> Running cassandra on nodes: ' + ', '.join(localIps)
 
-	confdir = basedir + '/config'
+	confdir = os.path.join(basedir, 'config')
 	print '> Configuration directory: ' + confdir
 	make_dir(confdir)
 
-	cyaml_fn = cassandra_home + '/conf/cassandra.yaml'
-	cyamlenv_fn = cassandra_home + '/conf/cassandra-env.sh'
+	cyaml_fn = os.path.join(cassandra_home, 'conf/cassandra.yaml')
+	cyamlenv_fn = os.path.join(cassandra_home, 'conf/cassandra-env.sh')
 	print '> Reading configuration file ' + cyaml_fn
 	with open(cyaml_fn, 'r') as fyaml:
 		cassandra_yaml = fyaml.read()
@@ -134,8 +135,8 @@ def do_start(args):
 	for clusterIndex in xrange(args.num_clusters):
 		clusterPrexfix = 'cluster' + str(clusterIndex)
 		for nodeIndex in xrange(args.num_nodes):
-			nodeName =  '/node' + str(nodeIndex)
-			myconfdir = confdir + '/' + clusterPrexfix + '/' + nodeName
+			nodeName =  'node' + str(nodeIndex)
+			myconfdir = os.path.join(confdir, clusterPrexfix, nodeName)
 			print myconfdir
 			print clusterPrexfix
 			print '> Writing configuration for %s node ' % (clusterPrexfix) + str(nodeIndex) + ' (' + myconfdir + ')...' 
@@ -148,9 +149,9 @@ def do_start(args):
 			# 	myconfdir + '/conf/cassandra-env.sh'])
 
 			myip = localIps[clusterIndex * args.num_nodes + nodeIndex]
-			my_commitlog_dir = commitlog_dir + '/' + clusterPrexfix + '/' + nodeName
-			my_saved_caches_dir = saved_caches_dir + '/' + clusterPrexfix + '/' + nodeName
-			my_data_dir = data_dir + '/' + clusterPrexfix + '/' + nodeName
+			my_commitlog_dir = os.path.join(commitlog_dir, clusterPrexfix, nodeName)
+			my_saved_caches_dir = os.path.join(saved_caches_dir, clusterPrexfix, nodeName)
+			my_data_dir = os.path.join(data_dir, clusterPrexfix, nodeName)
 
 			# Change working directoreis
 			my_cassandra_yaml = re.sub(re.compile('(cluster_name:).*$', flags=re.MULTILINE), \
@@ -224,7 +225,8 @@ def do_start(args):
 		clusterPrexfix = 'cluster' + str(clusterIndex)
 		for nodeIndex in xrange(args.num_nodes):
 			print '> Launching Cassandra instance on ' + clusterPrexfix + ' node ' + str(nodeIndex)
-			myconfdir = confdir + '/' + clusterPrexfix + '/node' + str(nodeIndex) + '/conf'
+			nodeName = 'node' + str(nodeIndex)
+			myconfdir = os.path.join(confdir, clusterPrexfix, nodeName, 'conf')
 
 			srun_cmd = ['bash', 'run_cassandra.sh']
 
@@ -233,7 +235,7 @@ def do_start(args):
 			#	'JMX_PORT' : myJmxPort}
 			myenv.update(os.environ)
 
-			myrundir = rundir + '/' + clusterPrexfix + '/node' + str(nodeIndex)
+			myrundir = os.path.join(rundir, clusterPrexfix, nodeName)
 			make_dir(myrundir)
 			myoutfile = myrundir + '/stdout'
 			myerrfile = myrundir + '/stderr'

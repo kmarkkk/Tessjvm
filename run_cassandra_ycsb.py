@@ -113,6 +113,8 @@ def shutdown_cassandra_instances():
     while not all_done:
         all_done = True
         for c in cassandra_instances.values():
+            print c['process']
+            print c['process'].poll()
             if (c['process'].poll() == None):
                 all_done = False
         time.sleep(0.01)
