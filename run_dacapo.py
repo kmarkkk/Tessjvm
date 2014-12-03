@@ -235,7 +235,11 @@ def runDacapo(options):
                     procsAndFiles = []
 
                     outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
-                    mkdir(outputdir, clean=True)
+                    if options.safe and os.path.exists(outputdir):
+                        heapsize *= 2
+                        continue
+                    else:
+                        mkdir(outputdir, clean=True)
 
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
@@ -303,6 +307,7 @@ if __name__ == "__main__":
     parser.add_argument("--cassandra-home", action="store", default="", help="path to the cassandra home")
     parser.add_argument("--workload", action="store", default="", help="the workload file to run by ycsb")
     parser.add_argument("-a", "--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
+    parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
