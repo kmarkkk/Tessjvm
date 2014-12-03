@@ -6,8 +6,9 @@ import json
 import os
 import shutil
 import subprocess
+import atexit
+import run_cassandra_cluster
 
-ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
 OSV_IMAGE_DIR = "osv_images"
 
 def printVerbose(options, statement):
@@ -97,7 +98,37 @@ def getDacapoConvergences():
         subprocess.call(["./dacapo_converge.py", '-d', options.dacapo])
         return getDacapoConvergences()
 
-def runDacapo(options):
+
+cassandra_instances = {}
+
+def shutdown_cassandra_instances():
+    print '> Shutting down Casssandra instancesssss'
+    print cassandra_instances
+    for c in cassandra_instances.values():
+        print c['process']  
+        c['process'].terminate()
+
+    print '> Waiting for processes to terminate...'
+    all_done = True
+    while not all_done:
+        all_done = True
+        for c in cassandra_instances.values():
+            if (c['process'].poll() == None):
+                all_done = False
+        time.sleep(0.01)
+    print '> DONE'  
+
+
+def runCassandra(options):
+    # Check for ycsb and cassandra home.
+    if not options.ycsb_home or not os.path.exists(options.ycsb_home):
+        raise Exception("Invalid ycsb home %s" % options.ycsb_home)
+    if not options.cassandra_home or not os.path.exists(options.cassandra_home):
+        raise Exception("Invalid cassandra home %s" % options.cassandra_home)
+    if not options.workload or not os.path.exists(options.workload):
+        raise Exception("Invalid workload file %s" % options.workload)
+
+
     if options.xen:
         if options.gangscheduled:
             platform = "xen_gangscheduled"
@@ -108,99 +139,82 @@ def runDacapo(options):
 
     # Build the Directory Structure
     resultsdir = options.resultsdir
-    experimentdir = os.path.join(resultsdir, options.test)
+    experimentdir = os.path.join(resultsdir, 'cassandra_ycsb')
     platformdir = os.path.join(experimentdir, platform)
 
     mkdir(resultsdir)
     mkdir(experimentdir)
     mkdir(platformdir)
 
-    # Parse which dacapo benchmark to run
-    if options.benchmark == "all":
-        benchmarks = ALL_BENCHMARKS
-    else:
-        assert options.benchmark in ALL_BENCHMARKS
-        benchmarks = [options.benchmark]
-
-    # Save experiment system state (revision #, env vars, timestamp, benchmark(s) run)
+    # Save experiement system state (revision #, env vars, timestamp, benchmark(s) run)
     sys_state = dict()
     sys_state['git_revision'] = subprocess.Popen(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE).communicate()[0]
     sys_state['env_vars'] = dict(os.environ)
-    sys_state['options'] = dict(vars(options))
+    #sys_state['benchmarks'] = benchmarks
     sys_state['CPU'] = parseCpuModel()
     sys_state['Memory'] = parseMemory()
     sys_state_file = open(os.path.join(platformdir, 'sys_state_%s.json' % datetime.datetime.now().isoformat()), 'w')
     json.dump(sys_state, sys_state_file, sort_keys=True, indent=4, separators=(',', ': '))
     sys_state_file.close()
 
-    #Loading Min Heap Sizes
-    with open("dacapo_min_heap.json") as f:
-        minheaps = json.load(f)
-
-    #Loading Dacapo Convergences
-    convergences = getDacapoConvergences()
-
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
-    procsAndFiles = None
-    for benchmark in benchmarks:
-        printVerbose(options, "Benchmark: %s" % benchmark)
-        numBenchmarkIterations = str(convergences[benchmark] + 5)
-        numjvms = options.startjvms
-        while numjvms <= options.numjvms:
-            printVerbose(options, "Num JVMs: %d" % numjvms)
-            heapsize = max(options.startheap, minheaps[benchmark])
-            maxheap = min(options.maxheap, parseMemsize(options.memsize) / numjvms)
-            while heapsize <= maxheap:
-                try:
-                    printVerbose(options, "Heapsize: %dMB" % heapsize)
-                    procsAndFiles = []
+    numjvms = 1
+    while numjvms <= options.numjvms:
+        printVerbose(options, "Num JVMs: %d" % numjvms)
+        try:
+            procsAndFiles = []
+            outputdir = os.path.join(platformdir, "%djvms" % (numjvms))
+            mkdir(outputdir, clean=True)
+            if options.xen:
+                # Run a xen.
+                print 'xen'
+            else:
+                options.num_nodes = options.numjvms
+                options.nosleep = True
+                options.basedir = outputdir
+                instances = run_cassandra_cluster.do_start(options)
+                print 'Returned instances'
+                print instances
+                cassandra_instances. update(instances)
+                #atexit.register(shutdown_cassandra_instances)
+                if options.init_cql:
+                    print '>Init cql for cassandra...'
+                    initCmd = [os.path.join(options.cassandra_home, 'bin/cqlsh'), '-f', options.init_cql]
+                    initProc = subprocess.Popen(initCmd)
+                    initProc.wait()
+                    print '>Done init cql'
+                # Now run ycsb.
+                ycsbCmd = [os.path.join(options.ycsb_home, 'bin/ycsb'), 'load', 'cassandra-cql', '-P', options.workload]
+                #cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
 
-                    outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
-                    if options.safe and os.path.exists(outputdir):
-                        heapsize *= 2
-                        continue
-                    else:
-                        mkdir(outputdir, clean=True)
+                #if options.xen:
+                    #dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
+                    #cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
+                     #       '-e', dacapo_cmd, '-p', 'xen']
 
-                    # If using xen, set the new image execute line first before running the image
-                    if options.xen:
-                        # First create the image copies
-                        makeOSvImageCopies(options, numjvms)
-                        for i in range(numjvms):
-                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
-                            cmd = dacapoXenRunCommand(options, i, heapsize)
-                            cmd += ['-e', dacapo_cmd, '--set-image-only']
-                            printVerbose(options, " ".join(cmd))
-                            subprocess.check_call(cmd)
-
-                    for i in range(numjvms):
-                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", numBenchmarkIterations, benchmark]
-
-                        if options.xen:
-                            cmd = dacapoXenRunCommand(options, i, heapsize)
-
-                        # Open stdout and stderr files to pipe output to
-                        stdout = open(os.path.join(outputdir, 'stdout%02d' % (i + 1)), 'a')
-                        stderr = open(os.path.join(outputdir, 'stderr%02d' % (i + 1)), 'a')
-
-                        printVerbose(options, " ".join(cmd))
-                        if options.stdout:
-                            proc = subprocess.Popen(cmd)
-                        else:
-                            proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                        procsAndFiles.append((proc, stdout, stderr))
-
-                    while procsAndFiles:
-                        proc, stdout, stderr = procsAndFiles.pop()
-                        proc.wait()
-                        stdout.close()
-                        stderr.close()
-                    heapsize *= 2
-                except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
-                    print "Detecting KeyboardInterrupt: Cleaning up Experiements"
-                    cleanUp(options, procsAndFiles)
-                    raise e
-            numjvms *= 2
+                # Open stdout and stderr files to pipe output to
+                stdout = open(os.path.join(outputdir, 'ycsb_stdout'), 'a')
+                stderr = open(os.path.join(outputdir, 'ycsb_stderr'), 'a')
+                printVerbose(options, " ".join(ycsbCmd))
+                if options.stdout:
+                    proc = subprocess.Popen(ycsbCmd)
+                else:
+                    proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
+                proc.wait()
+                # stdout.close()
+                # stderr.close()
+                print 'Done loading ycsb cassandra...'
+                ycsbCmd[1] = 'run'
+            while procsAndFiles:
+                proc, stdout, stderr = procsAndFiles.pop()
+                proc.wait()
+                stdout.close()
+                stderr.close()
+        except KeyboardInterrupt as e:
+            print "Detecting KeyboardInterrupt: Cleaning up Experiements"
+            cleanUp(options, procsAndFiles)
+            raise e
+        numjvms *= 2
 
     cleanUp(options, procsAndFiles)
 
@@ -208,11 +222,8 @@ def runDacapo(options):
 if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(prog='run')
-    parser.add_argument("-t", "--test", action="store", default="dacapo", help="choose test to run: dacapo, cassandra")
-    parser.add_argument("-b", "--benchmark", action="store", default="all", help="which dacapo benchmarks to run")
     parser.add_argument("--startjvms", action="store", default=1, type=int, help="starting amount of JVM's to test on")
     parser.add_argument("-n", "--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
-    parser.add_argument("-d", "--dacapo", action="store", default="dacapo-9.12-bach.jar", help="where dacapo is located")
     parser.add_argument("-r", "--resultsdir", action="store", help="where to store results")
     parser.add_argument("--startheap", action="store", default=128, type=int, help="starting heap size")
     parser.add_argument("-p", "--maxheap", action="store", type=int, default=4096, help="max heap size")
@@ -224,13 +235,14 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--memsize", action="store", default="2G", help="specify memory: ex. 1G, 2G, ...")
     parser.add_argument("-c", "--vcpus", action="store", default="4", help="specify number of vcpus")
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
+    parser.add_argument("--ycsb-home", action="store", default="", help="path to the ycsb home")
+    parser.add_argument("--cassandra-home", action="store", default="", help="path to the cassandra home")
+    parser.add_argument("--workload", action="store", default="", help="the workload file to run by ycsb")
     parser.add_argument("-a", "--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
-    parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
-    
+    parser.add_argument('-nc', "--num-clusters", action="store", default=1, type=int, help="the number of clusters to run")
+    parser.add_argument('--init-cql', action="store", help="the cql file to init cassandra for testing")
+
     cmdargs = parser.parse_args()
-    if cmdargs.test == "dacapo":
-        runDacapo(cmdargs)
-    else:
-        raise Exception("Uknown test %s" % cmdargs.test)
+    runCassandra(cmdargs)
 
 
