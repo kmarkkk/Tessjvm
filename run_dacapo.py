@@ -71,7 +71,8 @@ def dacapoXenRunCommand(options, i, heapsize):
     OSV_SLACK = 256 #256MB
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
-    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen', '-a', options.cpus, '--early-destroy']
+    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen', '-a', options.cpus, '--early-destroy',
+            "--cpupool", options.cpupool]
     if options.losetup:
         cmd += ['-l']
     return cmd
@@ -89,13 +90,13 @@ def parseMemsize(memory):
         raise SyntaxError
     return memory
 
-def getDacapoConvergences():
+def getDacapoConvergences(options):
     try:
         with open('dacapo_convergences.json', 'r') as f: 
             return json.load(f)
     except IOError:
         subprocess.call(["./dacapo_converge.py", '-d', options.dacapo])
-        return getDacapoConvergences()
+        return getDacapoConvergences(options)
 
 def runDacapo(options):
     if options.xen:
@@ -138,7 +139,7 @@ def runDacapo(options):
         minheaps = json.load(f)
 
     #Loading Dacapo Convergences
-    convergences = getDacapoConvergences()
+    convergences = getDacapoConvergences(options)
 
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     procsAndFiles = None
@@ -197,7 +198,7 @@ def runDacapo(options):
                         stderr.close()
                     heapsize *= 2
                 except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
-                    print "Detecting KeyboardInterrupt: Cleaning up Experiements"
+                    print "Detecting KeyboardInterrupt: Cleaning up Experiments"
                     cleanUp(options, procsAndFiles)
                     raise e
             numjvms *= 2
@@ -224,8 +225,9 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--memsize", action="store", default="2G", help="specify memory: ex. 1G, 2G, ...")
     parser.add_argument("-c", "--vcpus", action="store", default="4", help="specify number of vcpus")
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
-    parser.add_argument("-a", "--cpus", action="store", default="0-11", help="Which CPU's to pin to for Xen")
+    parser.add_argument("-a", "--cpus", action="store", default="all", help="Which CPU's to pin to for Xen")
     parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
+    parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
