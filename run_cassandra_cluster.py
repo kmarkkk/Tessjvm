@@ -134,8 +134,20 @@ def do_start(args):
 
 	for clusterIndex in xrange(args.num_clusters):
 		clusterPrexfix = 'cluster' + str(clusterIndex)
+		clusterSavedCachesDir = os.path.join(saved_caches_dir, clusterPrexfix)
+		clusterDataDir = os.path.join(data_dir, clusterPrexfix)
+		clusterLogDir = os.path.join(commitlog_dir, clusterPrexfix)
+		make_dir(clusterSavedCachesDir)
+		make_dir(clusterDataDir)
+		make_dir(clusterLogDir)
 		for nodeIndex in xrange(args.num_nodes):
 			nodeName =  'node' + str(nodeIndex)
+			nodeSavedCachesDir = os.path.join(clusterSavedCachesDir, nodeName)
+			nodeDataDir = os.path.join(clusterDataDir, nodeName)
+			nodeLogDir = os.path.join(clusterLogDir, nodeName)
+			make_dir(nodeSavedCachesDir)
+			make_dir(nodeDataDir)
+			make_dir(nodeLogDir)
 			myconfdir = os.path.join(confdir, clusterPrexfix, nodeName)
 			print myconfdir
 			print clusterPrexfix
