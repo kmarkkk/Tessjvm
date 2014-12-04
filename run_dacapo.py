@@ -70,24 +70,11 @@ def parseMemory():
 def dacapoXenRunCommand(options, i):
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
-    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (parseMemsize(options.memsize)), "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
-            "--cpupool", options.cpupool]
+    cmd = ["./scripts/run.py", "-i", image_path, "-m", options.memsize, "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
+            "--cpupool", options.cpupool, '--test', options.test, '--numjvms', options.numjvms, '--pausefirst', options.pausefirst]
     if options.losetup:
         cmd += ['-l']
     return cmd
-
-def parseMemsize(memory):
-    if memory[-1:].upper() == "M":
-        memory = int(memory[:-1])
-    elif memory[-2:].upper() == "MB":
-        memory = int(memory[:-2])
-    elif memory[-1:].upper() == "G":
-        memory = 1024 * int(memory[:-1])
-    elif memory[-2:].upper() == "GB":
-        memory = 1024 * int(memory[:-2])
-    else:
-        raise SyntaxError
-    return memory
 
 def getDacapoConvergences(options):
     try:
@@ -99,6 +86,8 @@ def getDacapoConvergences(options):
 
 def runDacapo(options):
     if options.xen:
+        # Make the image copies
+        makeOSvImageCopies(options, options.numjvms)
         if options.gangscheduled:
             platform = "xen_gangscheduled"
         else:
@@ -164,8 +153,6 @@ def runDacapo(options):
 
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
-                        # First create the image copies
-                        makeOSvImageCopies(options, numjvms)
                         for i in range(numjvms):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
                             cmd = dacapoXenRunCommand(options, i)
@@ -227,6 +214,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--cpus", action="store", default="all", help="Which CPU's to pin to for Xen")
     parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
     parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
+    parser.add_argument("--pausefirst", action="store_true", default=False, help="Whether or not to pause all the domains first and unpause them all at the same time")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":

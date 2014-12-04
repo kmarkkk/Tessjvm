@@ -233,7 +233,7 @@ def start_osv_xen(options):
         "memory=%d" % (memory),
         "vcpus=%s" % (options.vcpus),
         "maxcpus=%s" % (options.vcpus),
-        "name='osv-%d'" % (os.getpid()),
+        "name='osv-%s-%d'" % (options.test, os.getpid()),
         "serial='pty'",
         "paused=0",
         "on_crash='preserve'",
@@ -279,7 +279,22 @@ def start_osv_xen(options):
                     if "PASSED" in output:
                         #Wait 10 Seconds and then destroy the domain
                         time.sleep(10)
-                        subprocess.call(["sudo", "xl", "destroy", "osv-%d" % os.getpid()])
+                        subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (options.test, os.getpid())])
+            elif options.pausefirst:
+                alreadyPaused = False
+                proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE)
+                while proc.poll() is None:
+                    output = proc.stdout.readline()
+                    print(output, end="")
+                    if not alreadyPaused and "OSv" in output:
+                        alreadyPaused = True
+                        subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (options.test, os.getpid())])
+                        while True:
+                            xlList = subprocess.check_output(['sudo', 'xl', 'list'])
+                            if len(re.findall(r'osv-%s.*(?:r-----|-b----|--p---).*\n' % options.test, a)) == options.numjvms:
+                                break
+                            #Wait 1 Second before checking again
+                            time.sleep(1)            
             else:
                 subprocess.call(cmdline)
     except:
@@ -338,7 +353,7 @@ def start_osv_vmware(options):
     args += [
         'memsize = "%d"' % (memory),
         'numvcpus = "%s"' % (options.vcpus),
-        'displayName = "osv-%d"' % (os.getpid()),
+        'displayName = "osv-%s-%d"' % (options.test, os.getpid()),
     ]
 
     vmxfile = open("build/%s/osv.vmx" % options.opt_path, "w")
@@ -468,6 +483,9 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--cpus", action="store", default="all", help="Which CPU's to pin to for Xen")
     parser.add_argument("--early-destroy", action="store_true", default=False, help="Whether or not to preemptively destroy a Xen domain (for dacapo)")
     parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
+    parser.add_argument("-t", "--test", action="store", default="cassandra", help="choose test to run: dacapo, cassandra")
+    parser.add_argument("--pausefirst", action="store_true", default=False, help="Whether or not to pause all the domains first and unpause them all at the same time")
+    parser.add_argument("--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
     cmdargs.image_file = os.path.abspath(cmdargs.image or "build/%s/usr.img" % cmdargs.opt_path)
