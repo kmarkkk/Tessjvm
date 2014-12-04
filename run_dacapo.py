@@ -68,7 +68,7 @@ def parseMemory():
     return "Unknown"
 
 def dacapoXenRunCommand(options, i, heapsize):
-    OSV_SLACK = 256 #256MB
+    OSV_SLACK = options.slack
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
     cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
@@ -228,6 +228,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--cpus", action="store", default="all", help="Which CPU's to pin to for Xen")
     parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
     parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
+    parser.add_argument("--slack", action="store", default=128, type=int, help="How much extra memory slack to give to OSv domains")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
