@@ -67,11 +67,10 @@ def parseMemory():
         return "Unknown"
     return "Unknown"
 
-def dacapoXenRunCommand(options, i, heapsize):
-    OSV_SLACK = options.slack
+def dacapoXenRunCommand(options, i):
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
-    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (heapsize + OSV_SLACK), "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
+    cmd = ["./scripts/run.py", "-i", image_path, "-m", "%d" % (parseMemsize(options.memsize)), "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
             "--cpupool", options.cpupool]
     if options.losetup:
         cmd += ['-l']
@@ -150,7 +149,7 @@ def runDacapo(options):
         while numjvms <= options.numjvms:
             printVerbose(options, "Num JVMs: %d" % numjvms)
             heapsize = max(options.startheap, minheaps[benchmark])
-            maxheap = min(options.maxheap, parseMemsize(options.memsize) / numjvms)
+            maxheap = options.maxheap
             while heapsize <= maxheap:
                 try:
                     printVerbose(options, "Heapsize: %dMB" % heapsize)
@@ -169,7 +168,7 @@ def runDacapo(options):
                         makeOSvImageCopies(options, numjvms)
                         for i in range(numjvms):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
-                            cmd = dacapoXenRunCommand(options, i, heapsize)
+                            cmd = dacapoXenRunCommand(options, i)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
                             subprocess.check_call(cmd)
@@ -178,7 +177,7 @@ def runDacapo(options):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", numBenchmarkIterations, benchmark]
 
                         if options.xen:
-                            cmd = dacapoXenRunCommand(options, i, heapsize)
+                            cmd = dacapoXenRunCommand(options, i)
 
                         # Open stdout and stderr files to pipe output to
                         stdout = open(os.path.join(outputdir, 'stdout%02d' % (i + 1)), 'a')
@@ -228,7 +227,6 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--cpus", action="store", default="all", help="Which CPU's to pin to for Xen")
     parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
     parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
-    parser.add_argument("--slack", action="store", default=128, type=int, help="How much extra memory slack to give to OSv domains")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
