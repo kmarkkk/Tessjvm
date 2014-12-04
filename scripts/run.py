@@ -292,6 +292,7 @@ def start_osv_xen(options):
                         while True:
                             xlList = subprocess.check_output(['sudo', 'xl', 'list'])
                             if len(re.findall(r'osv-%s.*(?:r-----|-b----|--p---).*\n' % options.test, a)) == options.numjvms:
+                                subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, os.getpid())])
                                 break
                             #Wait 1 Second before checking again
                             time.sleep(1)            
