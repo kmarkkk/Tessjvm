@@ -248,7 +248,10 @@ def start_osv_xen(options):
     	args += ["disk=['%s,qcow2,hda,rw']" % options.image_file]
 
     if options.networking:
-        args += ["vif=['mac=%s,bridge=%s']" % (options.mac,options.bridge)]
+        if options.ip:
+            args += ["vif=['mac=%s,ip=%s,bridge=%s']" % (options.mac,options.ip,options.bridge)]
+        else:
+            args += ["vif=['mac=%s,bridge=%s']" % (options.mac,options.bridge)]
 
     # Using xm would allow us to get away with creating the file, but it comes
     # with its set of problems as well. Stick to xl.
@@ -464,6 +467,8 @@ if __name__ == "__main__":
                         help="start JVM with a suspended debugger server")
     parser.add_argument("--mac", action="store",
                         help="set MAC address for NIC")
+        parser.add_argument("--ip", action="store",
+                        help="the ip address in vif config")
     parser.add_argument("--vnc", action="store", default=":1",
                         help="specify vnc port number")
     parser.add_argument("--api", action="store_true",
