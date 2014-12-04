@@ -1,0 +1,9 @@
+\begin{thebibliography}{1}
+
+\bibitem{barham2003xen}
+P.~Barham, B.~Dragovic, K.~Fraser, S.~Hand, T.~Harris, A.~Ho, R.~Neugebauer,
+  I.~Pratt, and A.~Warfield.
+\newblock Xen and the art of virtualization.
+\newblock {\em ACM SIGOPS Operating Systems Review}, 37(5):164--177, 2003.
+
+\end{thebibliography}
