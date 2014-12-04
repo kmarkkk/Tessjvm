@@ -467,7 +467,7 @@ if __name__ == "__main__":
                         help="start JVM with a suspended debugger server")
     parser.add_argument("--mac", action="store",
                         help="set MAC address for NIC")
-        parser.add_argument("--ip", action="store",
+    parser.add_argument("--ip", action="store",
                         help="the ip address in vif config")
     parser.add_argument("--vnc", action="store", default=":1",
                         help="specify vnc port number")
