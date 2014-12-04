@@ -67,11 +67,11 @@ def parseMemory():
         return "Unknown"
     return "Unknown"
 
-def dacapoXenRunCommand(options, i):
+def dacapoXenRunCommand(options, i, numjvms):
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
     cmd = ["./scripts/run.py", "-i", image_path, "-m", options.memsize, "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
-            "--cpupool", options.cpupool, '--test', options.test, '--numjvms', str(options.numjvms)]
+            "--cpupool", options.cpupool, '--test', options.test, '--numjvms', str(numjvms)]
     if options.pausefirst:
         cmd += ['--pausefirst']
     if options.losetup:
@@ -157,7 +157,7 @@ def runDacapo(options):
                     if options.xen:
                         for i in range(numjvms):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
-                            cmd = dacapoXenRunCommand(options, i)
+                            cmd = dacapoXenRunCommand(options, i, numjvms)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
                             subprocess.check_call(cmd)
@@ -166,7 +166,7 @@ def runDacapo(options):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", numBenchmarkIterations, benchmark]
 
                         if options.xen:
-                            cmd = dacapoXenRunCommand(options, i)
+                            cmd = dacapoXenRunCommand(options, i, numjvms)
 
                         # Open stdout and stderr files to pipe output to
                         stdout = open(os.path.join(outputdir, 'stdout%02d' % (i + 1)), 'a')
