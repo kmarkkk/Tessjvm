@@ -71,7 +71,7 @@ def dacapoXenRunCommand(options, i):
     basename = os.path.basename(options.image)
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
     cmd = ["./scripts/run.py", "-i", image_path, "-m", options.memsize, "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
-            "--cpupool", options.cpupool, '--test', options.test, '--numjvms', options.numjvms, '--pausefirst', options.pausefirst]
+            "--cpupool", options.cpupool, '--test', options.test, '--numjvms', str(options.numjvms), '--pausefirst', options.pausefirst]
     if options.losetup:
         cmd += ['-l']
     return cmd
