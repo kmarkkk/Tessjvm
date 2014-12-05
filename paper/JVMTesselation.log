@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014) (preloaded format=pdflatex 2014.5.25)  4 DEC 2014 15:05
+This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014) (preloaded format=pdflatex 2014.5.25)  5 DEC 2014 02:51
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -303,7 +303,7 @@ Overfull \hbox (3.1928pt too wide) in paragraph at lines 158--159
 While
  []
 
-LaTeX Font Info:    Try loading font information for T1+aett on input line 205.
+LaTeX Font Info:    Try loading font information for T1+aett on input line 202.
 
 (/usr/local/texlive/2014/texmf-dist/tex/latex/ae/t1aett.fd
 File: t1aett.fd 1997/11/16 Font definitions for T1/aett.
@@ -313,53 +313,93 @@ File: t1aett.fd 1997/11/16 Font definitions for T1/aett.
 ]
 
 LaTeX Warning: Citation `Lamport:LaTeX' on page \thepage  undefined on input li
-ne 240.
+ne 237.
 
 
 LaTeX Warning: Citation `bowman:reasoning' on page \thepage  undefined on input
- line 267.
+ line 264.
 
 
 LaTeX Warning: Citation `clark:pct' on page \thepage  undefined on input line 2
-67.
+64.
 
 
 LaTeX Warning: Citation `braams:babel' on page \thepage  undefined on input lin
-e 267.
+e 264.
 
 
 LaTeX Warning: Citation `herlihy:methodology' on page \thepage  undefined on in
-put line 267.
+put line 264.
 
 
 LaTeX Warning: Citation `clark:pct' on page \thepage  undefined on input line 2
-68.
+65.
 
 
 LaTeX Warning: Citation `salas:calculus' on page \thepage  undefined on input l
-ine 269.
+ine 266.
 
 
 LaTeX Warning: Citation `Lamport:LaTeX' on page \thepage  undefined on input li
-ne 269.
+ne 266.
 
 
 LaTeX Warning: Citation `Lamport:LaTeX' on page \thepage  undefined on input li
-ne 275.
+ne 272.
 
 
 LaTeX Warning: Citation `Lamport:LaTeX' on page \thepage  undefined on input li
-ne 286.
+ne 283.
+
+Package epstopdf Info: Source file: <figures/avrora.eps>
+(epstopdf)                    date: 2014-12-03 14:19:36
+(epstopdf)                    size: 32055 bytes
+(epstopdf)             Output file: <figures/avrora-eps-converted-to.pdf>
+(epstopdf)                    date: 2014-12-04 15:55:56
+(epstopdf)                    size: 17926 bytes
+(epstopdf)             Command: <repstopdf --outfile=figures/avrora-eps-convert
+ed-to.pdf figures/avrora.eps>
+(epstopdf)             \includegraphics on input line 361.
+Package epstopdf Info: Output file is already uptodate.
+<figures/avrora-eps-converted-to.pdf, id=14, 578.16pt x 433.62pt>
+File: figures/avrora-eps-converted-to.pdf Graphic file (type pdf)
+
+<use figures/avrora-eps-converted-to.pdf>
+Package pdftex.def Info: figures/avrora-eps-converted-to.pdf used on input line
+ 361.
+(pdftex.def)             Requested size: 216.80946pt x 144.53743pt.
 
 
 LaTeX Font Warning: Font shape `T1/aett/bx/n' undefined
-(Font)              using `T1/aett/m/n' instead on input line 369.
+(Font)              using `T1/aett/m/n' instead on input line 363.
 
-[2]
+Package epstopdf Info: Source file: <figures/luindex.eps>
+(epstopdf)                    date: 2014-12-03 14:19:37
+(epstopdf)                    size: 52609 bytes
+(epstopdf)             Output file: <figures/luindex-eps-converted-to.pdf>
+(epstopdf)                    date: 2014-12-04 16:27:31
+(epstopdf)                    size: 19512 bytes
+(epstopdf)             Command: <repstopdf --outfile=figures/luindex-eps-conver
+ted-to.pdf figures/luindex.eps>
+(epstopdf)             \includegraphics on input line 375.
+Package epstopdf Info: Output file is already uptodate.
+<figures/luindex-eps-converted-to.pdf, id=15, 578.16pt x 433.62pt>
+File: figures/luindex-eps-converted-to.pdf Graphic file (type pdf)
+
+<use figures/luindex-eps-converted-to.pdf>
+Package pdftex.def Info: figures/luindex-eps-converted-to.pdf used on input lin
+e 375.
+(pdftex.def)             Requested size: 578.15858pt x 433.61894pt.
+
+Overfull \hbox (74.15858pt too wide) in paragraph at lines 375--377
+ [][] 
+ []
+
+[2] [3 <./figures/luindex-eps-converted-to.pdf>]
 \c@theorem=\count115
 \c@definition=\count116
 
-Overfull \hbox (15.60826pt too wide) detected at line 450
+Overfull \hbox (15.60826pt too wide) detected at line 430
 \OML/cmm/m/it/9 l \OT1/cmr/m/n/9 = [] \OML/cmm/m/it/9 f\OT1/cmr/m/n/9 (\OML/cmm
 /m/it/9 x\OT1/cmr/m/n/9 ) = [] [] = [] \OML/cmm/m/it/9 g\OT1/cmr/m/n/9 (\OML/cm
 m/m/it/9 x\OT1/cmr/m/n/9 ) \OMS/cmsy/m/n/9 ^^A [] [] \OT1/cmr/m/n/9 = 0 \OMS/cm
@@ -368,20 +408,19 @@ sy/m/n/9 ^^A \OML/cmm/m/it/9 L \OT1/cmr/m/n/9 = 0\OML/cmm/m/it/9 ;
 
 
 LaTeX Warning: Citation `salas:calculus' on page \thepage  undefined on input l
-ine 460.
+ine 440.
 
-(./JVMTesselation.bbl) [3] [4
-
-] (./JVMTesselation.aux)
+(./JVMTesselation.bbl) [4 <./figures/avrora-eps-converted-to.pdf>]
+(./JVMTesselation.aux)
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
  ) 
 Here is how much of TeX's memory you used:
- 2839 strings out of 493117
- 36089 string characters out of 6135433
- 105174 words of memory out of 5000000
- 6214 multiletter control sequences out of 15000+600000
+ 2851 strings out of 493117
+ 36444 string characters out of 6135433
+ 104174 words of memory out of 5000000
+ 6222 multiletter control sequences out of 15000+600000
  60760 words of font info for 84 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  41i,10n,28p,1262b,285s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -403,10 +442,10 @@ ts/type1/urw/helvetic/uhvr8a.pfb></usr/local/texlive/2014/texmf-dist/fonts/type
 1/urw/times/utmb8a.pfb></usr/local/texlive/2014/texmf-dist/fonts/type1/urw/time
 s/utmbi8a.pfb></usr/local/texlive/2014/texmf-dist/fonts/type1/urw/times/utmr8a.
 pfb></usr/local/texlive/2014/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on JVMTesselation.pdf (4 pages, 216559 bytes).
+Output written on JVMTesselation.pdf (4 pages, 239822 bytes).
 PDF statistics:
- 90 PDF objects out of 1000 (max. 8388607)
- 65 compressed objects within 1 object stream
+ 164 PDF objects out of 1000 (max. 8388607)
+ 73 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 1 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 11 words of extra memory for PDF output out of 10000 (max. 10000000)
 

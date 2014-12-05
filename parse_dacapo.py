@@ -25,6 +25,7 @@ def parse_benchmark(benchmark, benchmark_experiments, os_type, results_dir, outp
   # Colors for successive bar series
   color_iter = iter(['b', 'g', 'r', 'c', 'm', 'y'])
 
+  plt.clf()
   ax = plt.subplot(111)
   # Add an extra entry to the x-axis so we can see all of the experiments
   ax.set_xlim(0, len(all_memory_sizes)+1)
@@ -84,7 +85,7 @@ if __name__ == "__main__":
   parser.add_argument("-x", "--xen", action="store_true", default=False, help="enable to parse xen results instead of linux")
   parser.add_argument("-r", "--resultsdir", action="store", help="name of the directory containing the results")
   parser.add_argument("-o", "--outputdir", action="store", default=False, help="provide a directory to save the experiment results into")
-  parser.add_argument("-e", "--extension", action="store", default="png", help="if -o is provided, this is the file type extension for the graph images")
+  parser.add_argument("-e", "--extension", action="store", default="eps", help="if -o is provided, this is the file type extension for the graph images")
   cmdargs = parser.parse_args()
 
   if cmdargs.xen:

@@ -1,0 +1,3 @@
+# Ignore OSX directory metadata
+*.DS_Store
+
