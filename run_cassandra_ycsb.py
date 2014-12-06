@@ -149,12 +149,13 @@ cassandraXenInstances = {}
 
 def runCassandra(options):
     # Check for ycsb and cassandra home.
-    if not options.ycsb_home or not os.path.exists(options.ycsb_home):
-        raise Exception("Invalid ycsb home %s" % options.ycsb_home)
-    if not options.cassandra_home or not os.path.exists(options.cassandra_home):
-        raise Exception("Invalid cassandra home %s" % options.cassandra_home)
-    if not options.workload or not os.path.exists(options.workload):
-        raise Exception("Invalid workload file %s" % options.workload)
+    if not options.xen:
+        if not options.ycsb_home or not os.path.exists(options.ycsb_home):
+            raise Exception("Invalid ycsb home %s" % options.ycsb_home)
+        if not options.cassandra_home or not os.path.exists(options.cassandra_home):
+            raise Exception("Invalid cassandra home %s" % options.cassandra_home)
+        if not options.workload or not os.path.exists(options.workload):
+            raise Exception("Invalid workload file %s" % options.workload)
 
     if options.xen:
         makeOSvImageCopies(options, options.numjvms)
