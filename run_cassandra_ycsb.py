@@ -32,7 +32,7 @@ def clearCassandraInstances():
     for instance in instances[1:]:
         name = space.split(instance)[0]
         if name:
-            subprocess.check_output(['sudo', 'xl', 'destroy', name]
+            subprocess.check_output(['sudo', 'xl', 'destroy', name])
 
 def printVerbose(options, statement):
     if options.verbose:
@@ -206,12 +206,12 @@ def runCassandra(options):
                     cmd += ['--execute=\''+cassandraCmdline+'\'']
                     printVerbose(options, " ".join(cmd))
                     stdoutFile = os.path.join(outputdir, 'stdout%02d' % (t + 1))
-                    stderrFile = os.path.join(outputdir, 'stderr%02d' % (i + 1))
+                    stderrFile = os.path.join(outputdir, 'stderr%02d' % (t + 1))
                     fstdout = open(stdoutFile, 'a')
                     fstderr = open(stderrFile, 'a')
-                    p = subprocess.Popen(cmd, stdout=cassandraStdout, stderr=cassandraStderr)
+                    p = subprocess.Popen(cmd, stdout=fstdout, stderr=fstderr)
                     cassandraXenInstances[t] = {'proc':p, 'out':stdoutFile}
-                unfinishedInstances= cassandraXenInstances.keys()
+                unfinished_nodes= cassandraXenInstances.keys()
                 while unfinished_nodes:
                     done_nodes = []
                     for node in unfinished_nodes:
@@ -279,9 +279,10 @@ def runCassandra(options):
             clearCassandraInstances()
             raise e
         numjvms *= 2
+        cleanUp(options, procsAndFiles)
+        clearCassandraInstances()
 
-      cleanUp(options, procsAndFiles)
-      clearCassandraInstances()
+
 
 if __name__ == "__main__":
     # Parse arguments
