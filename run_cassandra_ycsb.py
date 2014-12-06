@@ -9,6 +9,7 @@ import subprocess
 import atexit
 import run_cassandra_cluster
 import re
+import time
 from subprocess import Popen, PIPE
 
 
@@ -197,7 +198,6 @@ def runCassandra(options):
             mkdir(outputdir, clean=True)
             if options.xen:
                 # Run a xen.
-                print 'xen'
                 nodes = []
                 for t in xrange(numjvms):
                     nodes.append(ipPrefix % (ipStart + t))
@@ -212,10 +212,11 @@ def runCassandra(options):
                     p = subprocess.Popen(cmd, stdout=fstdout, stderr=fstderr)
                     cassandraXenInstances[t] = {'proc':p, 'out':stdoutFile}
                 unfinished_nodes= cassandraXenInstances.keys()
+                print '>Now waiting for all cassandra instances set up'
                 while unfinished_nodes:
                     done_nodes = []
                     for node in unfinished_nodes:
-                        with open(cassandra_instances[node]['out'], 'r') as fout:
+                        with open(cassandraXenInstances[node]['out'], 'r') as fout:
                             outdata = fout.read()   
                         if re.search("Listening for thrift clients...", outdata) != None:
                             done_nodes.append(node)
