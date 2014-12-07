@@ -185,7 +185,7 @@ def runDacapo(options):
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
                         for i in range(numjvms):
-                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", 20, benchmark])
+                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", '20', benchmark])
                             cmd = dacapoXenRunCommand(options, i, numjvms)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
