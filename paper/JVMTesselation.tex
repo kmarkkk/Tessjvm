@@ -59,12 +59,11 @@
 %\crdata{0-12345-67-8/90/01}  % Allows default copyright data (0-89791-88-6/97/05) to be over-ridden - IF NEED BE.
 % --- End of Author Metadata ---
 
-\title{Exploration of applications running on a\\ported JVM on top of Tessellation}
+\title{Gang Scheduling Java Applications with Tessellation}
 
 \numberofauthors{4}
 
 \author{
-% 1st. author
 Benjamin Le \and Jefferson Lai \and Wenxuan Cai \and John Kubiatowicz\titlenote{The Parallel Computing Laboratory, UC Berkeley, CA, USA}\\
       \sharedaffiliation
       \affaddr{\{benjaminhoanle, jefflai2, wenxuancai\}@berkeley.edu, kubitron@cs.berkeley.edu}\\
@@ -88,43 +87,35 @@ Java applications run within Java Virtual Machines (JVM). As an application runs
 
 \section{Introduction}
 
-The Java Virtual Machine (JVM) abstraction provides a consistent, contained execution environment for Java applications and is a big part of why Java has enjoyed so much popularity and success in recent years. 
+The Java Virtual Machine (JVM) abstraction provides a consistent, contained execution environment for Java applications and is a significant factor in why Java has enjoyed so much popularity and success in recent years. For example, by handling the translation of portable Java bytecode to machine code specific to the lower level kernel and system architecture, the JVM allows developers to write an application once and run it in a number of different environments. While there exist a number of JVM implementations, maintained both privately and publicly, in general, they adhere to a single JVM specification. We refer the reader to \cite{lindholm2014java} for a complete specification, but summarize the roles of two key, highly researched components of the JVM: the "just in time" (JIT) compiler and the garbage collector (GC).
 
-By handling concerns about the lower level kernel and operating system, the JVM allows developers to write an application once and benefit from high portability to a number of different environments and architectures.
+The JIT compiler is responsible for compiling segments of bytecode into native machine instructions. Modern JIT compilers perform adaptive optimization \cite{suganuma2001dynamic}, which optimizes performance by dynamically compiling and recompiling these segments of code during run time. The result is a drastic performance improvement over simply interpreting the bytecode. Exactly how much compilation occurs before versus after a program begins executing and how much of a given program is interpreted varies across JVMs and significantly affects the performance characteristics of the program. While more advanced optimizations result in higher performing code, they generally also require more resources, including time, to perform, causing the program's performance to suffer for a period.
 
-There are number of different JVM specifications and implementations maintained both privately and publicly. While we refer to <PAPERs> for a deeper discussion of these variations, we summarize the general responsibilities most of them have in common.
+Garbage collection is the process of cleaning up unused memory so that developers do not, and generally can not, manage memory themselves. While this makes development easier and can drastically reduce the number of memory related bugs, garbage collectors are very complex and, as with the JIT compiler, consumes resources. Many techniques for garbage collection have been developed from simple reference counting, to parallelized stop-and-copy, to generational garbage collection \cite{lins1996garbage}. Each technique differs in how to locate "live" objects, when to run, whether and when execution needs to be halted, what memory needs to be touched, and how objects in memory may need to be moved.
 
-<VERY BRIEF SUMMARY JVM responsibilities (JIT compiling and GC)>
-%Further reducing the load on developers, the JVM is also responsible for garbage collection, code profiling, and In addition, By leaving responsibilities such as executing in JVMs, developers can   Two of the most 
-<BACKGROUND TASKS THAT CAN INTERFERE WITH ONE ANOTHER>
+%TODO Why do GC and AOT need to communicate?
 
-In this paper, we focus on the HotSpot JVM <REFERENCE> and investigate the effect of ARCC  Tesselation on this interference. We show that <summarize findings>
+%TODO Figure out how to cite http://www.oracle.com/technetwork/java/javase/memorymanagement-whitepaper-150215.pdf
 
-The rest of this paper is organized as follows.
 
-%%%%%%%%%%%%%%%%%%%%%%%%
+%TODO Reference HDFS, Hadoop, Spark?
+Together, garbage collection and adaptive optimization require the JVM to perform many tasks background tasks in addition to program execution. While this design works well when there is a single or small number of Java applications running on a single machine, in practice it may be desirable to have a large number of Java applications running concurrently on a single machine. For example, a machine could be running multiple instances of Hadoop File System (HDFS), Hadoop, and Spark, simultaneously, with each instance having an associated JVM. As all of these JVMs must ultimately be multiplexed onto a single set of hardware, significant interference may arise between the tasks of each JVM. In particular, when applications require timing or quality of service (QoS) guarantees, this interference may lead to unacceptable performance.
 
- As applications run, the JVM performs many parallel background tasks for general housekeeping reasons including garbage collection and code profiling for adaptive optimization. While this design works well to provide isolation when there is a single or small number of Java applications running on a single machine, in practice it is common to find a large number of Java applications running concurrently on a single machine. For example, a machine could be running multiple instances of Hadoop File System (HDFS), Hadoop, and Spark, simultaneously, with each instance having an associated JVM. As all of these JVMs must ultimately be multiplexed onto a single set of hardware, interference between the large set of parallel tasks arises.
+%TODO Do I need to reference Juan's paper again when I mention two-level scheduling.
+%TODO Revist and update the last sentence (maybe paragraph) once we have results
+One potential solution to this problem is made possible with the Tessellation operating system architecture and the Adaptive Resource-Centric Computing (ARCC) system design paradigm \cite{colmenares2010resource, colmenares2013tessellation, liu2009tessellation}. In ARCC, applications execute within stable, isolated resource containers called \textit{cells}. In addition to implementing cells, the ARCC-based Tessellation kernel uses \textit{two-level scheduling}, which decouples the allocation of resources to cells (the first level) from scheduling how these resources are used within cells (the second level). In this paper, we apply and evaluate gang scheduling \cite{feitelson1992gang} as a second level scheduling policy. In particular, we execute a single application and JVM in each cell and run multiple cells on a single, multi-core machine, gang scheduling each cell's resources together. By measuring the performance of these applications with and without gang scheduling, we show the effect of gang scheduling at mitigating interference for OpenJDK's HotSpot JVM.
 
-There is little published literature documenting the causes of this interference or how to deal with it. In this paper, we determine the specific sources of this interference and show how running these applications on top of a Tessellation-integrated Xen hypervisor addresses these issues and reduces interference. We evaluate the performance of these “Tessellated” machines in comparison with machines running bare Linux when running a large number of JVMs. We conclude with insights gained from our experiments and areas for future work.
-
-The remainder of this paper is organized as follows. Section 2 describes the systems we are working with, including Xen, Tesselation, and OSV. Section 3 describes our experimental results. We discuss directions for future work in Section 4 and conclude in Section 5.
-
-Baseline OSV, OSV with Gang scheduling.
-
-Make sure to talk about how Tesselation fits in with Xen for Kubi.
-
-1-32 JVMs, Max Heap Sizes: 1-256
+The remainder of this paper is organized as follows. Section 2 provides background on the HotSpot JVM and the Tesselation architecture. Sections 3 and 4 describes our experimental setup and results with two Java different benchmark suites. In Section 5 we present a survey or related work. We discuss directions for future work in Section 6 and conclude in Section 7.
 
 \section{Background}
 
 \subsection{HotSpot}
 
-<SUMMARY OF HOTSPOT (specifics of how HotSpot handles JIT compilation and GC)>
-
-\subsection{ARCC}
+%TODO: SUMMARY OF HOTSPOT (specifics of how HotSpot handles JIT compilation and GC)
 
 \subsection{Tesselation}
+
+%TODO: Make sure to talk about how Tesselation fits in with Xen for Kubi.
 
 %Typically, the body of a paper is organized
 %into a hierarchical structure, with numbered or unnumbered
@@ -150,6 +141,8 @@ Make sure to talk about how Tesselation fits in with Xen for Kubi.
 %input file; that is why this sentence forms a separate paragraph.
 
 \section{Dacapo}
+
+%TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
 
 \subsection{Experimental Setup}
 
@@ -206,6 +199,8 @@ avrora &1000&100\\
 
 \section{YCSB}
 
+%TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
+
 \subsection{Experimental Setup}
 
 \subsection{Results}
@@ -241,17 +236,15 @@ that has been resized with the \texttt{epsfig} command.}
 that needs to span two columns of text.}
 \end{figure*}
 
+\section{Future Work}
+
+\section{Related Work}
+
+%TODO Either defend against "Gang scheduling isn't worth it yet" paper or (possibly?) use it as an explanation.
+
 \section{Conclusion}
-This paragraph will end the body of this sample document.
-Remember that you might still have Acknowledgments or
-Appendices; brief samples of these
-follow.  There is still the Bibliography to deal with; and
-we will make a disclaimer about that here: with the exception
-of the reference to the \LaTeX\ book, the citations in
-this paper are to articles which have nothing to
-do with the present subject and are used as
-examples only.
-%\end{document}  % This is where a 'short' article might terminate
+
+%TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
 
 %ACKNOWLEDGMENTS are optional
 \section{Acknowledgments}
