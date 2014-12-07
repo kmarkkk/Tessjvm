@@ -96,6 +96,16 @@ def pauseFirst(stdout, test, pid):
         #Wait 1 Second before checking again
         time.sleep(1)         
 
+def pauseAfterWarmUp(stdout, test, pid, numIterations):
+    while True:
+        with open(stdout, 'r') as fout:
+            output = fout.read()
+            if ("completed warmup %d" % numIterations) in output:
+                subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (test, pid)])
+                break
+        #Wait 1 Second before checking again
+        time.sleep(1)
+
 def runDacapo(options):
     if options.xen:
         # Make the image copies
@@ -202,6 +212,19 @@ def runDacapo(options):
                         for proc, stdout, stderr, i in procsAndFiles:
                             subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
 
+                    if options.xen and options.pauseafterwarmup:
+                        threads = []
+                        # Wait for all Xen domains to warm up before continuing on
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            thread = Thread(target=pauseAfterWarmUp, args=(os.path.join(outputdir, 'stdout%02d' % (i + 1)), options.test, proc.pid, convergences[benchmark]))
+                            threads.append(thread)
+                            thread.start()
+                        for thread in threads:
+                            thread.join()
+                        # Now let them run again
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
+
                     while procsAndFiles:
                         proc, stdout, stderr, i = procsAndFiles.pop()
                         proc.wait()
@@ -243,6 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("--safe", action="store_true", default=False, help="Run in 'Safe' Mode (don't rerun and overwrite tests which already have folders)")
     parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
     parser.add_argument("--pausefirst", action="store_true", default=False, help="Whether or not to pause all the domains first and unpause them all at the same time")
+    parser.add_argument("--pauseafterwarmup", action="store_true", default=False, help="Whether or not to set a barrier after warming up domains")
     
     cmdargs = parser.parse_args()
     if cmdargs.test == "dacapo":
