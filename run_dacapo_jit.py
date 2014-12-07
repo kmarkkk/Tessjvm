@@ -228,7 +228,7 @@ def runDacapo(options):
                     # Unpause Domain-1
                     subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEST, proc0.pid)])
                     # Wait for Domain-1 to finish test
-                    thread = Thread(target=waitForNIterations, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), TEST, proc0.pid, convergences[benchmark]))
+                    thread = Thread(target=waitForNIterations, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), TEST, proc0.pid, numBenchmarkIterations))
                     thread.start()
                     thread.join()
                     # Destroy Domain-1
