@@ -106,6 +106,15 @@ def pauseAfterWarmUp(stdout, test, pid, numIterations):
         #Wait 1 Second before checking again
         time.sleep(1)
 
+def waitForNIterations(stdout, test, pid, numIterations):
+    while True:
+        with open(stdout, 'r') as fout:
+            output = fout.read()
+            if ("completed warmup %d" % numIterations) in output:
+                break
+        #Wait 1 Second before checking again
+        time.sleep(1)
+
 def runDacapo(options):
     if options.xen:
         # Make the image copies
@@ -176,7 +185,7 @@ def runDacapo(options):
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
                         for i in range(numjvms):
-                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", numBenchmarkIterations, benchmark])
+                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", 20, benchmark])
                             cmd = dacapoXenRunCommand(options, i, numjvms)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
@@ -224,6 +233,19 @@ def runDacapo(options):
                         # Now let them run again
                         for proc, stdout, stderr, i in procsAndFiles:
                             subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
+
+                    if options.xen:
+                        threads = []
+                        # Detect when all Xen domains have hit some iteration
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            thread = Thread(target=waitForNIterations, args=(os.path.join(outputdir, 'stdout%02d' % (i + 1)), options.test, proc.pid, numBenchmarkIterations))
+                            threads.append(thread)
+                            thread.start()
+                        for thread in threads:
+                            thread.join()
+                        # Now destroy them
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (options.test, proc.pid)])
 
                     while procsAndFiles:
                         proc, stdout, stderr, i = procsAndFiles.pop()
