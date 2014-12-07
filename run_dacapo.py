@@ -6,6 +6,8 @@ import json
 import os
 import shutil
 import subprocess
+import time
+from threading import Thread
 
 ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
 OSV_IMAGE_DIR = "osv_images"
@@ -28,7 +30,7 @@ def cleanUp(options, procsAndFiles):
 
     #Kill Ongoing processes and close the currently open stdout/stderr files
     while procsAndFiles:
-        proc, stdout, stderr = procsAndFiles.pop()
+        proc, stdout, stderr, i = procsAndFiles.pop()
         proc.kill()
         stdout.close()
         stderr.close()
@@ -72,8 +74,6 @@ def dacapoXenRunCommand(options, i, numjvms):
     image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
     cmd = ["./scripts/run.py", "-i", image_path, "-m", options.memsize, "-c", options.vcpus, '-p', 'xen', '-a', options.cpus,
             "--cpupool", options.cpupool, '--test', options.test, '--numjvms', str(numjvms)]
-    if options.pausefirst:
-        cmd += ['--pausefirst']
     if options.losetup:
         cmd += ['-l']
     return cmd
@@ -85,6 +85,16 @@ def getDacapoConvergences(options):
     except IOError:
         subprocess.call(["./dacapo_converge.py", '-d', options.dacapo])
         return getDacapoConvergences(options)
+
+def pauseFirst(stdout, test, pid):
+    while True:
+        with open(stdout, 'r') as fout:
+            output = fout.read()
+            if "OSv" in output:
+                subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (test, pid)])
+                break
+        #Wait 1 Second before checking again
+        time.sleep(1)         
 
 def runDacapo(options):
     if options.xen:
@@ -177,10 +187,23 @@ def runDacapo(options):
                             proc = subprocess.Popen(cmd)
                         else:
                             proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                        procsAndFiles.append((proc, stdout, stderr))
+                        procsAndFiles.append((proc, stdout, stderr, i))
+
+                    if options.xen and options.pausefirst:
+                        threads = []
+                        # Wait for all Xen domains start up first before running them
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            thread = Thread(target=pauseFirst, args=(os.path.join(outputdir, 'stdout%02d' % (i + 1)), options.test, proc.pid))
+                            threads.append(thread)
+                            thread.start()
+                        for thread in threads:
+                            thread.join()
+                        # Now let them run again
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
 
                     while procsAndFiles:
-                        proc, stdout, stderr = procsAndFiles.pop()
+                        proc, stdout, stderr, i = procsAndFiles.pop()
                         proc.wait()
                         stdout.close()
                         stderr.close()
@@ -189,7 +212,10 @@ def runDacapo(options):
                     print "Detecting KeyboardInterrupt: Cleaning up Experiments"
                     cleanUp(options, procsAndFiles)
                     raise e
-            numjvms *= 2
+            if numjvms == options.numjvms:
+                numjvms *= 2
+            else:
+                numjvms = min(numjvms * 2, options.numjvms)
 
     cleanUp(options, procsAndFiles)
 

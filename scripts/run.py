@@ -273,34 +273,8 @@ def start_osv_xen(options):
         cmdline += [xenfile.name]
         if options.dry_run:
             print(format_args(cmdline))
-        else:
-            if options.early_destroy:
-                proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE)
-                while proc.poll() is None:
-                    output = proc.stdout.readline()
-                    print(output, end="")
-                    if "PASSED" in output:
-                        #Wait 10 Seconds and then destroy the domain
-                        time.sleep(10)
-                        subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (options.test, os.getpid())])
-            elif options.pausefirst:
-                alreadyPaused = False
-                proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE)
-                while proc.poll() is None:
-                    output = proc.stdout.readline()
-                    print(output, end="")
-                    if not alreadyPaused and "OSv" in output:
-                        alreadyPaused = True
-                        subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (options.test, os.getpid())])
-                        while True:
-                            xlList = subprocess.check_output(['sudo', 'xl', 'list'])
-                            if len(re.findall(r'osv-%s.*(?:r-----|-b----|--p---).*\n' % options.test, xlList)) == options.numjvms:
-                                subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, os.getpid())])
-                                break
-                            #Wait 1 Second before checking again
-                            time.sleep(1)            
-            else:
-                subprocess.call(cmdline)
+        else:          
+            subprocess.call(cmdline)
     except:
         pass
     finally:
@@ -487,10 +461,8 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     parser.add_argument("--set-image-only", action="store_true", default=False, help="Whether or not to only set the image arguments")
     parser.add_argument("-a", "--cpus", action="store", default="all", help="Which CPU's to pin to for Xen")
-    parser.add_argument("--early-destroy", action="store_true", default=False, help="Whether or not to preemptively destroy a Xen domain (for dacapo)")
     parser.add_argument("--cpupool", action="store", default="Pool-0", help="Which Xen cpupool to use")
     parser.add_argument("-t", "--test", action="store", default="cassandra", help="choose test to run: dacapo, cassandra")
-    parser.add_argument("--pausefirst", action="store_true", default=False, help="Whether or not to pause all the domains first and unpause them all at the same time")
     parser.add_argument("--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
     cmdargs = parser.parse_args()
     cmdargs.opt_path = "debug" if cmdargs.debug else "release"
