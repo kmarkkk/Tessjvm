@@ -29,7 +29,7 @@ def cleanUp(options, procsAndFiles):
 
     #Kill Ongoing processes and close the currently open stdout/stderr files
     while procsAndFiles:
-        proc, stdout, stderr = procsAndFiles.pop()
+        proc, stdout, stderr, i = procsAndFiles.pop()
         proc.kill()
         stdout.close()
         stderr.close()
@@ -185,23 +185,23 @@ def runDacapo(options):
                             proc = subprocess.Popen(cmd)
                         else:
                             proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                        procsAndFiles.append((proc, stdout, stderr))
+                        procsAndFiles.append((proc, stdout, stderr, i))
 
                     if options.xen and options.pausefirst:
                         threads = []
                         # Wait for all Xen domains start up first before running them
-                        for proc, stdout, stderr in procsAndFiles:
-                            thread = Thread(target=pauseFirst, args=(stdout, proc.pid))
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            thread = Thread(target=pauseFirst, args=(os.path.join(outputdir, 'stdout%02d' % (i + 1)), proc.pid))
                             threads.append(thread)
                             thread.start()
                         for thread in threads:
                             thread.join()
                         # Now let them run again
-                        for proc, stdout, stderr in procsAndFiles:
+                        for proc, stdout, stderr, i in procsAndFiles:
                             subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
 
                     while procsAndFiles:
-                        proc, stdout, stderr = procsAndFiles.pop()
+                        proc, stdout, stderr, i = procsAndFiles.pop()
                         proc.wait()
                         stdout.close()
                         stderr.close()
