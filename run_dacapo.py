@@ -92,6 +92,7 @@ def pauseFirst(stdout, test, pid):
             output = fout.read()
             if "OSv" in output:
                 subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (test, pid)])
+                break
         #Wait 1 Second before checking again
         time.sleep(1)         
 
