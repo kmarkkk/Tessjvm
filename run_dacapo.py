@@ -192,7 +192,7 @@ def runDacapo(options):
                         # Wait for all Xen domains start up first before running them
                         for proc, stdout, stderr in procsAndFiles:
                             thread = Thread(target=pauseFirst, args=(stdout, proc.pid))
-                            thread.append(thread)
+                            threads.append(thread)
                             thread.start()
                         for thread in threads:
                             thread.join()
