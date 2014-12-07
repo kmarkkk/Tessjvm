@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from threading import Thread
 
 ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
@@ -85,12 +86,12 @@ def getDacapoConvergences(options):
         subprocess.call(["./dacapo_converge.py", '-d', options.dacapo])
         return getDacapoConvergences(options)
 
-def pauseFirst(stdout, pid):
+def pauseFirst(stdout, test, pid):
     while True:
         with open(stdout, 'r') as fout:
-            outdata = fout.read()
+            output = fout.read()
             if "OSv" in output:
-                subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (options.test, pid)])
+                subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (test, pid)])
         #Wait 1 Second before checking again
         time.sleep(1)         
 
@@ -191,7 +192,7 @@ def runDacapo(options):
                         threads = []
                         # Wait for all Xen domains start up first before running them
                         for proc, stdout, stderr, i in procsAndFiles:
-                            thread = Thread(target=pauseFirst, args=(os.path.join(outputdir, 'stdout%02d' % (i + 1)), proc.pid))
+                            thread = Thread(target=pauseFirst, args=(os.path.join(outputdir, 'stdout%02d' % (i + 1)), options.test, proc.pid))
                             threads.append(thread)
                             thread.start()
                         for thread in threads:
