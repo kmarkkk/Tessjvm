@@ -164,7 +164,7 @@ def runDacapo(options):
     procsAndFiles = None
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
-        numBenchmarkIterations = str(convergences[benchmark] + 5)
+        numBenchmarkIterations = convergences[benchmark] + 5
         numjvms = options.startjvms
         while numjvms <= options.numjvms:
             printVerbose(options, "Num JVMs: %d" % numjvms)
@@ -192,7 +192,7 @@ def runDacapo(options):
                             subprocess.check_call(cmd)
 
                     for i in range(numjvms):
-                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", numBenchmarkIterations, benchmark]
+                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
 
                         if options.xen:
                             cmd = dacapoXenRunCommand(options, i, numjvms)
