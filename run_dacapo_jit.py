@@ -158,94 +158,98 @@ def runDacapo(options):
         printVerbose(options, "Benchmark: %s" % benchmark)
         numBenchmarkIterations = convergences[benchmark] + 5
         numjvms = options.numjvms
-        heapsize = options.maxheap
-        printVerbose(options, "Num JVMs: %d" % numjvms)
-        printVerbose(options, "Heapsize: %dMB" % heapsize)
+        heapsize = max(options.startheap, minheaps[benchmark])
+        maxheap = options.maxheap
+        while heapsize <= maxheap:
+            printVerbose(options, "Num JVMs: %d" % numjvms)
+            printVerbose(options, "Heapsize: %dMB" % heapsize)
 
-        outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
-        if options.safe and os.path.exists(outputdir):
-            break
-        else:
-            mkdir(outputdir, clean=True)
+            outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
+            if options.safe and os.path.exists(outputdir):
+                heapsize *= 2
+                continue
+            else:
+                mkdir(outputdir, clean=True)
 
-        for iter_num in range(options.iterations):
-            try:
-                # First warmup an image under load
-                procsAndFiles = []
+            for iter_num in range(options.iterations):
+                try:
+                    # First warmup an image under load
+                    procsAndFiles = []
 
-                # If using xen, set the new image execute line first before running the image
-                if options.xen:
-                    # Make the image copies
-                    makeOSvImageCopies(options, options.numjvms)
+                    # If using xen, set the new image execute line first before running the image
+                    if options.xen:
+                        # Make the image copies
+                        makeOSvImageCopies(options, options.numjvms)
+                        for i in range(numjvms):
+                            dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", '20', benchmark])
+                            cmd = dacapoXenRunCommand(options, i, numjvms)
+                            cmd += ['-e', dacapo_cmd, '--set-image-only']
+                            printVerbose(options, " ".join(cmd))
+                            subprocess.check_call(cmd)
+
                     for i in range(numjvms):
-                        dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", '20', benchmark])
-                        cmd = dacapoXenRunCommand(options, i, numjvms)
-                        cmd += ['-e', dacapo_cmd, '--set-image-only']
-                        printVerbose(options, " ".join(cmd))
-                        subprocess.check_call(cmd)
+                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
 
-                for i in range(numjvms):
-                    cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
+                        if options.xen:
+                            cmd = dacapoXenRunCommand(options, i, numjvms)
+
+                        # Open stdout and stderr files to pipe output to
+                        stdout = open(os.path.join(TEMPDIR, 'tempout%02d' % (i + 1)), 'w')
+                        stderr = open(os.path.join(TEMPDIR, 'temperr%02d' % (i + 1)), 'w')
+
+                        printVerbose(options, " ".join(cmd))
+                        if options.stdout:
+                            proc = subprocess.Popen(cmd)
+                        else:
+                            proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
+                        procsAndFiles.append((proc, stdout, stderr, i))
+
+                    if options.xen and options.pausefirst:
+                        threads = []
+                        # Wait for all Xen domains start up first before running them
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            thread = Thread(target=pauseFirst, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i + 1)), TEST, proc.pid))
+                            threads.append(thread)
+                            thread.start()
+                        for thread in threads:
+                            thread.join()
+                        # Now let them run again
+                        for proc, stdout, stderr, i in procsAndFiles:
+                            subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEST, proc.pid)])
 
                     if options.xen:
-                        cmd = dacapoXenRunCommand(options, i, numjvms)
-
-                    # Open stdout and stderr files to pipe output to
-                    stdout = open(os.path.join(TEMPDIR, 'tempout%02d' % (i + 1)), 'w')
-                    stderr = open(os.path.join(TEMPDIR, 'temperr%02d' % (i + 1)), 'w')
-
-                    printVerbose(options, " ".join(cmd))
-                    if options.stdout:
-                        proc = subprocess.Popen(cmd)
-                    else:
-                        proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                    procsAndFiles.append((proc, stdout, stderr, i))
-
-                if options.xen and options.pausefirst:
-                    threads = []
-                    # Wait for all Xen domains start up first before running them
-                    for proc, stdout, stderr, i in procsAndFiles:
-                        thread = Thread(target=pauseFirst, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i + 1)), TEST, proc.pid))
-                        threads.append(thread)
+                        # Detect when Domain-1 has finished warming up
+                        proc0, stdout0, stderr0, i0 = procsAndFiles[0]
+                        thread = Thread(target=waitForNIterations, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), TEST, proc0.pid, convergences[benchmark]))
                         thread.start()
-                    for thread in threads:
                         thread.join()
-                    # Now let them run again
-                    for proc, stdout, stderr, i in procsAndFiles:
-                        subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEST, proc.pid)])
+                        # Pause Domain-1
+                        subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (TEST, proc0.pid)])
+                        # Now destroy the other domains
+                        for proc, stdout, stderr, i in procsAndFiles[1:]:
+                            subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (TEST, proc.pid)])
+                        # Unpause Domain-1
+                        subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEST, proc0.pid)])
+                        # Wait for Domain-1 to finish test
+                        thread = Thread(target=waitForNIterations, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), TEST, proc0.pid, numBenchmarkIterations))
+                        thread.start()
+                        thread.join()
+                        # Destroy Domain-1
+                        subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (TEST, proc0.pid)])
+                        # Copy temp stdout of Domain-z1 somewhere to save it
+                        subprocess.call(['cp', os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), os.path.join(outputdir, 'stdout%02d' % (iter_num + 1))])
 
-                if options.xen:
-                    # Detect when Domain-1 has finished warming up
-                    proc0, stdout0, stderr0, i0 = procsAndFiles[0]
-                    thread = Thread(target=waitForNIterations, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), TEST, proc0.pid, convergences[benchmark]))
-                    thread.start()
-                    thread.join()
-                    # Pause Domain-1
-                    subprocess.call(["sudo", "xl", "pause", "osv-%s-%d" % (TEST, proc0.pid)])
-                    # Now destroy the other domains
-                    for proc, stdout, stderr, i in procsAndFiles[1:]:
-                        subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (TEST, proc.pid)])
-                    # Unpause Domain-1
-                    subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEST, proc0.pid)])
-                    # Wait for Domain-1 to finish test
-                    thread = Thread(target=waitForNIterations, args=(os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), TEST, proc0.pid, numBenchmarkIterations))
-                    thread.start()
-                    thread.join()
-                    # Destroy Domain-1
-                    subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (TEST, proc0.pid)])
-                    # Copy temp stdout of Domain-z1 somewhere to save it
-                    subprocess.call(['cp', os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), os.path.join(outputdir, 'stdout%02d' % (iter_num + 1))])
+                    while procsAndFiles:
+                        proc, stdout, stderr, i = procsAndFiles.pop()
+                        proc.wait()
+                        stdout.close()
+                        stderr.close()
 
-                while procsAndFiles:
-                    proc, stdout, stderr, i = procsAndFiles.pop()
-                    proc.wait()
-                    stdout.close()
-                    stderr.close()
-
-            except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
-                print "Detecting KeyboardInterrupt: Cleaning up Experiments"
-                cleanUp(options, procsAndFiles)
-                raise e
+                except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
+                    print "Detecting KeyboardInterrupt: Cleaning up Experiments"
+                    cleanUp(options, procsAndFiles)
+                    raise e
+            heapsize *= 2
 
     cleanUp(options, procsAndFiles)
 
@@ -257,6 +261,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
     parser.add_argument("-d", "--dacapo", action="store", default="dacapo-9.12-bach.jar", help="where dacapo is located")
     parser.add_argument("-r", "--resultsdir", action="store", help="where to store results")
+    parser.add_argument("--startheap", action="store", default=128, type=int, help="starting heap size")
     parser.add_argument("-p", "--maxheap", action="store", type=int, default=4096, help="max heap size")
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help="be more verbose")
     parser.add_argument("-s", "--stdout", action="store_true", default=False, help="Output to stdout rather than to results dir")
