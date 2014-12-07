@@ -212,7 +212,7 @@ def runDacapo(options):
                         thread.join()
                     # Now let them run again
                     for proc, stdout, stderr, i in procsAndFiles:
-                        subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEMPDIR, proc.pid)])
+                        subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (TEST, proc.pid)])
 
                 if options.xen:
                     # Detect when Domain-1 has finished warming up
