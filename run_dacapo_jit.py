@@ -127,6 +127,7 @@ def runDacapo(options):
     mkdir(resultsdir)
     mkdir(experimentdir)
     mkdir(platformdir)
+    mkdir(TEMPDIR)
 
     # Parse which dacapo benchmark to run
     if options.benchmark == "all":
