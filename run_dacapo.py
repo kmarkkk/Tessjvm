@@ -117,8 +117,6 @@ def waitForNIterations(stdout, test, pid, numIterations):
 
 def runDacapo(options):
     if options.xen:
-        # Make the image copies
-        makeOSvImageCopies(options, options.numjvms)
         if options.gangscheduled:
             platform = "xen_gangscheduled"
         else:
@@ -184,6 +182,8 @@ def runDacapo(options):
 
                     # If using xen, set the new image execute line first before running the image
                     if options.xen:
+                        # Make the image copies
+                        makeOSvImageCopies(options, options.numjvms)
                         for i in range(numjvms):
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", "-n", '20', benchmark])
                             cmd = dacapoXenRunCommand(options, i, numjvms)
