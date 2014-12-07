@@ -191,8 +191,8 @@ def runDacapo(options):
                         cmd = dacapoXenRunCommand(options, i, numjvms)
 
                     # Open stdout and stderr files to pipe output to
-                    stdout = open(os.path.join(TEMPDIR, 'tempout%02d' % (i + 1)), 'a')
-                    stderr = open(os.path.join(TEMPDIR, 'temperr%02d' % (i + 1)), 'a')
+                    stdout = open(os.path.join(TEMPDIR, 'tempout%02d' % (i + 1)), 'w')
+                    stderr = open(os.path.join(TEMPDIR, 'temperr%02d' % (i + 1)), 'w')
 
                     printVerbose(options, " ".join(cmd))
                     if options.stdout:
@@ -233,7 +233,7 @@ def runDacapo(options):
                     thread.join()
                     # Destroy Domain-1
                     subprocess.call(["sudo", "xl", "destroy", "osv-%s-%d" % (TEST, proc0.pid)])
-                    # Copy temp stdout of Domain-1 somewhere to save it
+                    # Copy temp stdout of Domain-z1 somewhere to save it
                     subprocess.call(['cp', os.path.join(TEMPDIR, 'tempout%02d' % (i0 + 1)), os.path.join(outputdir, 'stdout%02d' % (iter_num + 1))])
 
                 while procsAndFiles:
