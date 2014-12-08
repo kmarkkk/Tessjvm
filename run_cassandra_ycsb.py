@@ -127,13 +127,10 @@ def parseMemsize(memory):
         raise SyntaxError
     return memory
 
-cassandra_instances = {}
-
-def shutdown_cassandra_instances():
+def shutdown_cassandra_instances(cassandra_instances):
     print '> Shutting down Casssandra instancesssss'
     print cassandra_instances
     for c in cassandra_instances.values():
-        print c['process']  
         c['process'].terminate()
 
     print '> Waiting for processes to terminate...'
@@ -141,8 +138,6 @@ def shutdown_cassandra_instances():
     while not all_done:
         all_done = True
         for c in cassandra_instances.values():
-            print c['process']
-            print c['process'].poll()
             if (c['process'].poll() == None):
                 all_done = False
         time.sleep(0.01)
@@ -253,28 +248,22 @@ def runCassandra(options):
                 subprocess.check_call(loadCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
                 print '>Done ycsb'
             else:
-                options.num_nodes = options.numjvms
+                cassandra_instances = {}
+                options.num_nodes = numjvms
                 options.nosleep = True
                 options.basedir = outputdir
                 instances = run_cassandra_cluster.do_start(options)
                 print 'Returned instances'
-                print instances
-                cassandra_instances. update(instances)
+                cassandra_instances.update(instances)
+                print cassandra_instances
                 #atexit.register(shutdown_cassandra_instances)
                 if options.init_cql:
                     initCql(options)
                 # Now run ycsb.
                 ycsbCmd = [os.path.join(options.ycsb_home, 'bin/ycsb'), 'load', 'cassandra-cql', '-P', options.workload]
-                #cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, benchmark]
-
-                #if options.xen:
-                    #dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-jar', "/dacapo.jar", benchmark])
-                    #cmd = ["./scripts/run.py", "-i", options.image, "-m", options.memsize, "-c", options.vcpus, 
-                     #       '-e', dacapo_cmd, '-p', 'xen']
-
                 # Open stdout and stderr files to pipe output to
-                stdout = open(os.path.join(outputdir, 'ycsb_stdout'), 'a')
-                stderr = open(os.path.join(outputdir, 'ycsb_stderr'), 'a')
+                stdout = open(os.path.join(outputdir, 'ycsbloadstdout'), 'a')
+                stderr = open(os.path.join(outputdir, 'ycsbloadstderr'), 'a')
                 printVerbose(options, " ".join(ycsbCmd))
                 if options.stdout:
                     proc = subprocess.Popen(ycsbCmd)
@@ -285,6 +274,16 @@ def runCassandra(options):
                 # stderr.close()
                 print 'Done loading ycsb cassandra...'
                 ycsbCmd[1] = 'run'
+                stdout = open(os.path.join(outputdir, 'ycsbrunstdout'), 'a')
+                stderr = open(os.path.join(outputdir, 'ycsbrunstderr'), 'a')
+                printVerbose(options, " ".join(ycsbCmd))
+                if options.stdout:
+                    proc = subprocess.Popen(ycsbCmd)
+                else:
+                    proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
+                proc.wait()
+                shutdown_cassandra_instances(cassandra_instances)
+                time.sleep(10)
             while procsAndFiles:
                 proc, stdout, stderr = procsAndFiles.pop()
                 proc.wait()
@@ -293,10 +292,11 @@ def runCassandra(options):
         except KeyboardInterrupt as e:
             print "Detecting KeyboardInterrupt: Cleaning up Experiements"
             cleanUp(options, procsAndFiles)
-            clearCassandraInstances()
+            if options.xen:
+                clearCassandraInstances()
             raise e
-        clearCassandraInstances()
-        clearCassandraInstances()
+        if options.xen:
+            clearCassandraInstances()
         if numjvms == 1:
           numjvms = 2
         else:
