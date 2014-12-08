@@ -12,7 +12,7 @@ import re
 import time
 from subprocess import Popen, PIPE
 
-
+YCSB_ITER = 2
 HEAP_SIZE = 900
 YOUNG_SIZE = 700
 OSV_IMAGE_DIR = "osv_images"
@@ -241,11 +241,11 @@ def runCassandra(options):
                 ycsbLoadErr = open(os.path.join(outputdir, 'ycsbloadstderr'), 'a')
                 print loadCmd
                 subprocess.check_call(loadCmd, stdout=ycsbLoadOut, stderr=ycsbLoadErr)
-
                 runCmd = ycsbXenRunCommand(options, ' '.join(nodes), 'run')
-                ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout'), 'a')
-                ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr'), 'a')
-                subprocess.check_call(loadCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
+                for t in xrange(YCSB_ITER):
+                    ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout%02d' % (t + 1)), 'a')
+                    ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d' % (t + 1)), 'a')
+                    subprocess.check_call(loadCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
                 print '>Done ycsb'
             else:
                 cassandra_instances = {}
@@ -270,18 +270,17 @@ def runCassandra(options):
                 else:
                     proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
                 proc.wait()
-                # stdout.close()
-                # stderr.close()
                 print 'Done loading ycsb cassandra...'
                 ycsbCmd[1] = 'run'
-                stdout = open(os.path.join(outputdir, 'ycsbrunstdout'), 'a')
-                stderr = open(os.path.join(outputdir, 'ycsbrunstderr'), 'a')
-                printVerbose(options, " ".join(ycsbCmd))
-                if options.stdout:
-                    proc = subprocess.Popen(ycsbCmd)
-                else:
-                    proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
-                proc.wait()
+                for t in xrange(YCSB_ITER):
+                    stdout = open(os.path.join(outputdir, 'ycsbrunstdout%02d' % (t + 1)), 'a')
+                    stderr = open(os.path.join(outputdir, 'ycsbrunstderr%02d' % (t + 1)), 'a')
+                    printVerbose(options, " ".join(ycsbCmd))
+                    if options.stdout:
+                        proc = subprocess.Popen(ycsbCmd)
+                    else:
+                        proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
+                    proc.wait()
                 shutdown_cassandra_instances(cassandra_instances)
                 time.sleep(10)
             while procsAndFiles:
