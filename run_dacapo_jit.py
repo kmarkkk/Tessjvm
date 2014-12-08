@@ -131,8 +131,7 @@ def runDacapo(options):
     if options.benchmark == "all":
         benchmarks = ALL_BENCHMARKS
     else:
-        assert options.benchmark in ALL_BENCHMARKS
-        benchmarks = [options.benchmark]
+        benchmarks = options.benchmark.split(",")
 
     # Save experiment system state (revision #, env vars, timestamp, benchmark(s) run)
     sys_state = dict()
