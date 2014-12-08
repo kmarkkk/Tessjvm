@@ -156,7 +156,7 @@ def runDacapo(options):
     procsAndFiles = None
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
-        numBenchmarkIterations = convergences[benchmark] + 5
+        numBenchmarkIterations = convergences[benchmark] + 5 + 1
         numjvms = options.numjvms
         heapsize = max(options.startheap, minheaps[benchmark])
         maxheap = options.maxheap
