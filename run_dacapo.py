@@ -173,7 +173,7 @@ def runDacapo(options):
                     printVerbose(options, "Heapsize: %dMB" % heapsize)
                     procsAndFiles = []
 
-                    outputdir = os.path.join(platformdir, "%s_%djvms_%dMB" % (benchmark, numjvms, heapsize))
+                    outputdir = os.path.join(platformdir, "%s_%02djvms_%04dMB" % (benchmark, numjvms, heapsize))
                     if options.safe and os.path.exists(outputdir):
                         heapsize *= 2
                         continue
