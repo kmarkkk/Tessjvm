@@ -40,12 +40,17 @@ def cleanUp(options, procsAndFiles):
         shutil.rmtree(OSV_IMAGE_DIR)
 
 def cleanUpTracer(tracer, trace_bin):
+
+    def summary():
+        outputdir = os.path.dirname(trace_bin)
+        stdout = open(os.path.join(outputdir, 'xenalyze_summary'), 'w')
+        stderr = open(os.path.join(outputdir, 'xenalyze_summary_err'), 'w')
+        subprocess.call(["xenalyze", "--cpu-hz", "2.67G", "--summary", trace_bin], stdout=stdout, stderr=stderr)
+        subprocess.call(["sudo", "rm", trace_bin])
+
     subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
-    outputdir = os.path.dirname(trace_bin)
-    stdout = open(os.path.join(outputdir, 'xenalyze_summary'), 'w')
-    stderr = open(os.path.join(outputdir, 'xenalyze_summary_err'), 'w')
-    subprocess.call(["xenalyze", "--cpu-hz", "2.67G", "--summary", trace_bin], stdout=stdout, stderr=stderr)
-    subprocess.call(["sudo", "rm", trace_bin])
+    thread = Thread(target=summary)
+    thread.start()
 
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
