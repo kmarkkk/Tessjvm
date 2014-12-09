@@ -250,7 +250,7 @@ def do_start(args):
 			myJmxPort = str(jmxPort + nodeIndex)
 			print myJmxPort
 			myenv = {'CASSANDRA_HOME': cassandra_home, 'CASSANDRA_CONF': myconfdir, 
-			'JVM_OPTS':'-Xss256k'}
+			'JVM_OPTS':'-Xss256k', 'MAX_HEAP_SIZE':'1080M', 'HEAP_NEWSIZE':'840M'}
 			#	'JMX_PORT' : myJmxPort}
 			myenv.update(os.environ)
 
