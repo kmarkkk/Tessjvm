@@ -1,3 +1,12 @@
 # Ignore OSX directory metadata
 *.DS_Store
 
+# Ignore auxiliary LaTeX files
+paper/JVMTesselation.aux
+paper/JVMTesselation.bbl
+paper/JVMTesselation.blg
+paper/JVMTesselation.dvi
+paper/JVMTesselation.log
+paper/JVMTesselation.pdf
+paper/JVMTesselation.synctex.gz
+
