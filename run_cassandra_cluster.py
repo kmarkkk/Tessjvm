@@ -251,6 +251,8 @@ def do_start(args):
 			print myJmxPort
 			myenv = {'CASSANDRA_HOME': cassandra_home, 'CASSANDRA_CONF': myconfdir, 
 			'JVM_OPTS':'-Xss256k'}
+			if hasattr(args, 'heap'):
+				myenv.update({'MAX_HEAP_SIZE':args.heap, 'HEAP_NEWSIZE':args.young})
 			#	'JMX_PORT' : myJmxPort}
 			myenv.update(os.environ)
 

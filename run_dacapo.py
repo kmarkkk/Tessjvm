@@ -39,6 +39,19 @@ def cleanUp(options, procsAndFiles):
     if options.xen:
         shutil.rmtree(OSV_IMAGE_DIR)
 
+def cleanUpTracer(tracer, trace_bin):
+
+    def summary():
+        outputdir = os.path.dirname(trace_bin)
+        stdout = open(os.path.join(outputdir, 'xenalyze_summary'), 'w')
+        stderr = open(os.path.join(outputdir, 'xenalyze_summary_err'), 'w')
+        subprocess.call(["xenalyze", "--cpu-hz", "2.67G", "--summary", trace_bin], stdout=stdout, stderr=stderr)
+        subprocess.call(["sudo", "rm", trace_bin])
+
+    subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
+    thread = Thread(target=summary)
+    thread.start()
+
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
     basename = os.path.basename(options.image)
@@ -110,7 +123,7 @@ def waitForNIterations(stdout, test, pid, numIterations):
     while True:
         with open(stdout, 'r') as fout:
             output = fout.read()
-            if ("completed warmup %d" % numIterations) in output:
+            if ("completed warmup %d" % numIterations) in output or '[backtrace]' in output:
                 break
         #Wait 1 Second before checking again
         time.sleep(1)
@@ -191,6 +204,9 @@ def runDacapo(options):
                             printVerbose(options, " ".join(cmd))
                             subprocess.check_call(cmd)
 
+                    # Start Xen Trace
+                    tracer = subprocess.Popen(["sudo", "xentrace", "-D", "-e", "0x0002f000", os.path.join(outputdir, 'trace_file.bin')])
+
                     for i in range(numjvms):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
 
@@ -252,6 +268,7 @@ def runDacapo(options):
                         proc.wait()
                         stdout.close()
                         stderr.close()
+                    cleanUpTracer(tracer, os.path.join(outputdir, 'trace_file.bin'))
                     heapsize *= 2
                 except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiments"
