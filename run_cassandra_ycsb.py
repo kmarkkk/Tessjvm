@@ -12,20 +12,19 @@ import re
 import time
 from subprocess import Popen, PIPE
 
-YCSB_ITER = 2
-HEAP_SIZE = 900
-YOUNG_SIZE = 700
+YCSB_ITER = 5
+HEAP_RATIO = 0.9
+YOUNG_RATIO = 0.7
 OSV_IMAGE_DIR = "osv_images"
 #ipPrefix = "169.229.48.%d"
 ipPrefix = "172.16.2.%d"
-ipStart = 101
+ipStart = 3
 macAddr = "00:16:3e:16:02:%d"
 macStart = 69
-cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=169.229.48.1 --nameserver=169.229.48.155 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
-#cassandraXenCmdline = "--ip=eth0,169.229.48.%d,255.255.255.0  --defaultgw=169.229.48.1 --nameserver=169.229.48.155 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
-YCSB_IP = "172.16.2.100"
+cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
+YCSB_IP = "172.16.2.2"
 YCSB_MAC = "00:16:3e:16:02:68"
-ycsbXenCmdline = '--execute=--ip=eth0,%s,255.255.255.0  --defaultgw=169.229.48.1 --nameserver=169.229.48.155 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada -%s -p "host=%s" -p port=9042 -p threadcount=2'
+ycsbXenCmdline = '--execute=--ip=eth0,%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada -%s -p "host=%s" -p port=9042 -p threadcount=2'
 
 
 def clearCassandraInstances():
@@ -100,7 +99,7 @@ def parseMemory():
 def cassandraXenRunCommand(options, i):
     image_path = os.path.join(OSV_IMAGE_DIR, "cassandra.qemu_%d" % (i + 1))
     cmd = ["./scripts/run.py", "-i", image_path, "-c", options.vcpus, "-p", "xen", "-a", options.cpus, "-m", options.memsize, "--cpupool", options.cpupool, "-n",
-    "--bridge", "xenbr0", "--mac", macAddr % (macStart + i)]
+    "--bridge", "xenbr1", "--mac", macAddr % (macStart + i)]
     if options.losetup:
         cmd += ["-l"]
     print cmd
@@ -109,7 +108,7 @@ def cassandraXenRunCommand(options, i):
 def ycsbXenRunCommand(options, hosts, phrase):
     ycsbCmd = ycsbXenCmdline % (YCSB_IP, phrase, hosts)
     ycsbCmd += ' ' + options.ycsb_cmd
-    cmd = ["./scripts/run.py", "-t", "ycsb", "-i", options.ycsb_image, "-c", options.vcpus, "-p", "xen", "-m", options.memsize, "-a", options.cpus, "--cpupool", options.cpupool, "-n", "--bridge", "xenbr0", "--mac", YCSB_MAC, ycsbCmd]
+    cmd = ["./scripts/run.py", "-t", "ycsb", "-i", options.ycsb_image, "-c", options.vcpus, "-p", "xen", "-m", options.memsize, "-a", options.cpus, "--cpupool", options.cpupool, "-n", "--bridge", "xenbr1", "--mac", YCSB_MAC, ycsbCmd]
     if options.losetup:
         cmd += ["-l"]
     return cmd
@@ -143,8 +142,6 @@ def shutdown_cassandra_instances(cassandra_instances):
         time.sleep(0.01)
     print '> DONE'  
 
-cassandraXenInstances = {}
-
 def initCql(options, ip='127.0.0.1'):
     print '>Init cql for cassandra...'
     initCmd = [os.path.join(options.cassandra_home, 'bin/cqlsh'), ip, '-f', options.init_cql]
@@ -165,6 +162,9 @@ def runCassandra(options):
     if options.xen:
         makeOSvImageCopies(options, options.numjvms)
         print '>Done makign image copies...'
+        options.heap = (int)(options.memsize * HEAP_RATIO)
+        options.young = (int)(options.memsize * YOUNG_RATIO)
+        options.memsize = str(options.memsize)
         if options.gangscheduled:
             platform = "xen_gangscheduled"
         else:
@@ -193,7 +193,7 @@ def runCassandra(options):
     sys_state_file.close()
 
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
-    numjvms = 1
+    numjvms = options.startjvm
     procsAndFiles = []
     while numjvms <= options.numjvms:
         printVerbose(options, "Num JVMs: %d" % numjvms)
@@ -203,8 +203,9 @@ def runCassandra(options):
             if options.xen:
                 # Run a xen.
                 nodes = []
+                cassandraXenInstances = {}
                 for t in xrange(numjvms):
-                    cassandraCmdline = cassandraXenCmdline % (ipStart + t, HEAP_SIZE, HEAP_SIZE, YOUNG_SIZE)
+                    cassandraCmdline = cassandraXenCmdline % (ipStart + t, options.heap, options.heap, options.young)
                     cmd = cassandraXenRunCommand(options, t)
                     cmd += ['--execute=' + cassandraCmdline]
                     cmd += ['--set-image-only']
@@ -219,7 +220,7 @@ def runCassandra(options):
                     fstdout = open(stdoutFile, 'a')
                     fstderr = open(stderrFile, 'a')
                     p = subprocess.Popen(cmd, stdout=fstdout, stderr=fstderr)
-                    cassandraXenInstances[t] = {'proc':p, 'out':stdoutFile}
+                    cassandraXenInstances[t] = {'process':p, 'out':stdoutFile}
                 unfinished_nodes= cassandraXenInstances.keys()
                 print '>Now waiting for all cassandra instances set up'
                 while unfinished_nodes:
@@ -233,7 +234,6 @@ def runCassandra(options):
                           unfinished_nodes.remove(node)
                       time.sleep(0.01)
                 print '>All canssadra domains are ready! Start ycsb...'
-                time.sleep(3000)
                 initCql(options, nodes[0])
                 loadCmd = ycsbXenRunCommand(options, ' '.join(nodes), 'load')
                 print nodes
@@ -247,6 +247,7 @@ def runCassandra(options):
                     ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d' % (t + 1)), 'a')
                     subprocess.check_call(loadCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
                 print '>Done ycsb'
+                shutdown_cassandra_instances(cassandraXenInstances)
             else:
                 cassandra_instances = {}
                 options.num_nodes = numjvms
@@ -282,7 +283,6 @@ def runCassandra(options):
                         proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
                     proc.wait()
                 shutdown_cassandra_instances(cassandra_instances)
-                time.sleep(10)
             while procsAndFiles:
                 proc, stdout, stderr = procsAndFiles.pop()
                 proc.wait()
@@ -300,6 +300,7 @@ def runCassandra(options):
           numjvms = 2
         else:
           numjvms += 2
+        time.sleep(10)
     cleanUp(options, procsAndFiles)
 
 
@@ -310,6 +311,7 @@ if __name__ == "__main__":
     parser.add_argument("--startjvms", action="store", default=1, type=int, help="starting amount of JVM's to test on")
     parser.add_argument("-n", "--numjvms", action="store", default=64, type=int, help="max amount of JVM's to test on")
     parser.add_argument("-r", "--resultsdir", action="store", help="where to store results")
+    parser.add_argument("--startjvm", action="store", default=1, type=int, help="starting numebr of jvms")
     parser.add_argument("--startheap", action="store", default=128, type=int, help="starting heap size")
     parser.add_argument("-p", "--maxheap", action="store", type=int, default=4096, help="max heap size")
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help="be more verbose")
@@ -318,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("-g", "--gangscheduled", action="store_true", default=False, help="whether or not the version of xen has gang scheduling")
     parser.add_argument("-ci", "--cassandra-image", action="store", default=None, help="location of the osv image with cassandra on it")
     parser.add_argument("-yi", "--ycsb-image", action="store", default=None, help="location of the osv image with ycsb on it")
-    parser.add_argument("-m", "--memsize", action="store", default="2G", help="specify memory: ex. 1G, 2G, ...")
+    parser.add_argument("-m", "--memsize", action="store", default=2048, type=int, help="specify memory, in MB, ex. 1000, 2000, ...")
     parser.add_argument("-c", "--vcpus", action="store", default="4", help="specify number of vcpus")
     parser.add_argument("-l", "--losetup", action="store_true", default=False, help="Whether or not use loop devices as disk image.")
     parser.add_argument("--ycsb-home", action="store", default="", help="path to the ycsb home")
