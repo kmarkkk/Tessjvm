@@ -23,7 +23,7 @@ def mkdir(directory, clean=False):
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-def cleanUp(options, procsAndFiles, tracer):
+def cleanUp(options, procsAndFiles):
     #Cleanup Scratch Directories
     for i in range(options.numjvms):
         subprocess.Popen(['rm', '-rf', 'scratch%d' % i])
@@ -39,9 +39,13 @@ def cleanUp(options, procsAndFiles, tracer):
     if options.xen:
         shutil.rmtree(OSV_IMAGE_DIR)
 
-    #Kill xentracer process
-    if tracer:
-        subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
+def cleanUpTracer(tracer, trace_bin):
+    subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
+    output_dir = os.path.dirname(trace_bin)
+    stdout = open(os.path.join(outputdir, 'xenalyze_summary'), 'w')
+    stderr = open(os.path.join(outputdir, 'xenalyze_summary_err'), 'w')
+    subprocess.call(["xenalyze", "--cpu-hz", "2.67G", "--summary", trace_bin], stdout=stdout, stderr=stderr)
+    subprocess.call(["sudo", "rm", trace_bin])
 
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
@@ -163,7 +167,6 @@ def runDacapo(options):
 
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     procsAndFiles = None
-    tracer = None
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
         numBenchmarkIterations = convergences[benchmark] + 5
@@ -179,7 +182,6 @@ def runDacapo(options):
 
                     outputdir = os.path.join(platformdir, "%s_%02djvms_%04dMB" % (benchmark, numjvms, heapsize))
                     if options.safe and os.path.exists(outputdir):
-                        subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
                         heapsize *= 2
                         continue
                     else:
@@ -261,18 +263,18 @@ def runDacapo(options):
                         proc.wait()
                         stdout.close()
                         stderr.close()
-                    subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
+                    cleanUpTracer(tracer, os.path.join(outputdir, 'trace_file.bin'))
                     heapsize *= 2
                 except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiments"
-                    cleanUp(options, procsAndFiles, tracer)
+                    cleanUp(options, procsAndFiles)
                     raise e
             if numjvms == options.numjvms:
                 numjvms *= 2
             else:
                 numjvms = min(numjvms * 2, options.numjvms)
 
-    cleanUp(options, procsAndFiles, tracer)
+    cleanUp(options, procsAndFiles)
 
 
 if __name__ == "__main__":
