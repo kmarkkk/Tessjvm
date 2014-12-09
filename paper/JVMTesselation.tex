@@ -47,6 +47,8 @@
 
 \documentclass{sig-alternate}
 
+\usepackage{url}
+
 \def\sharedaffiliation{
 \end{tabular}
 \begin{tabular}{c}}
@@ -87,11 +89,11 @@ Java applications run within Java Virtual Machines (JVM). As an application runs
 
 \section{Introduction}
 
-The Java Virtual Machine (JVM) abstraction provides a consistent, contained execution environment for Java applications and is a significant factor in why Java has enjoyed so much popularity and success in recent years. For example, by handling the translation of portable Java bytecode to machine code specific to the lower level kernel and system architecture, the JVM allows developers to write an application once and run it in a number of different environments. While there exist a number of JVM implementations, maintained both privately and publicly, in general, they adhere to a single JVM specification. We refer the reader to \cite{lindholm2014java} for a complete specification, but summarize the roles of two key, highly researched components of the JVM: the "just in time" (JIT) compiler and the garbage collector (GC).
+The Java Virtual Machine (JVM) abstraction provides a consistent, contained execution environment for Java applications and is a significant factor in why Java has enjoyed so much popularity and success in recent years. For example, by handling the translation of portable Java bytecode to machine code specific to the lower level kernel and system architecture, the JVM allows developers to write an application once and run it in a number of different environments. While there exist a number of JVM implementations, maintained both privately and publicly, in general, they adhere to a single JVM specification. We refer the reader to \cite{lindholm2014java} for a complete specification, but summarize the roles of two key, highly researched components of the JVM: advanced optimization of Java "just in time" (JIT) compilers and garbage collection (GC).
 
-The JIT compiler is responsible for compiling segments of bytecode into native machine instructions. Modern JIT compilers perform adaptive optimization \cite{suganuma2001dynamic}, which optimizes performance by dynamically compiling and recompiling these segments of code during run time. The result is a drastic performance improvement over simply interpreting the bytecode. Exactly how much compilation occurs before versus after a program begins executing and how much of a given program is interpreted varies across JVMs and significantly affects the performance characteristics of the program. While more advanced optimizations result in higher performing code, they generally also require more resources, including time, to perform, causing the program's performance to suffer for a period.
+The JIT compiler is responsible for compiling segments of bytecode into native machine instructions. Modern JIT compilers are extended with adaptive optimization techniques \cite{suganuma2001dynamic}, which attempt to optimize performance by dynamically compiling and caching these segments of code during run time. The result is a drastic performance improvement over simply interpreting the bytecode. Exactly how much compilation occurs before versus after a program begins executing and how much of a given program is interpreted varies across JVMs and significantly affects the performance characteristics of the program. While more advanced optimization results in higher performing code, it generally also requires more resources, including time, to perform, incurring a larger overhead and impact on the program's performance.
 
-Garbage collection is the process of cleaning up unused memory so that developers do not, and generally can not, manage memory themselves. While this makes development easier and can drastically reduce the number of memory related bugs, garbage collectors are very complex and, as with the JIT compiler, consumes resources. Many techniques for garbage collection have been developed from simple reference counting, to parallelized stop-and-copy, to generational garbage collection \cite{lins1996garbage}. Each technique differs in how to locate "live" objects, when to run, whether and when execution needs to be halted, what memory needs to be touched, and how objects in memory may need to be moved.
+Garbage collection is the process of cleaning up unused memory so that developers do not, and generally can not, manage memory themselves. While this makes development easier and can drastically reduce the number of memory related bugs, garbage collectors are very complex and, as with the adaptive optimization, consumes resources. Many techniques for garbage collection have been developed from simple reference counting, to parallelized stop-and-copy, to generational garbage collection \cite{lins1996garbage}. Each technique differs in how to locate "live" objects, when to run, whether and when execution needs to be halted, what memory needs to be touched, and how objects in memory may need to be moved.
 
 %TODO Why do GC and AOT need to communicate?
 
@@ -109,36 +111,26 @@ The remainder of this paper is organized as follows. Section 2 provides backgrou
 
 \section{Background}
 
-\subsection{HotSpot}
+This section provides an overview of the relevant features of OpenJDK's HotSpot JVM and of the primary features of the Tesselation manycore operating system.
 
-%TODO: SUMMARY OF HOTSPOT (specifics of how HotSpot handles JIT compilation and GC)
+\subsection{HotSpot}
+There currently exist two primary implementations of the HotSpot JVM. One is owned and maintained privately by Oracle and the other is an open source version maintained alongside the open-source OpenJDK project. Despite being separately maintained, the two implementations are strikingly similar in methodology and performance. This is largely due to the fact that each stems from the same version made public by Sun Microsystems as well as the fact that Oracle employees continue to actively contribute to OpenJDK. The primary differences between the two stem from Oracle's addition of several non-essential, auxiliary components. As such, and for lack of detailed documentation from OpenJDK, we present two key components of the Oracle HotSpot JVM here and make the, we believe valid, assumption that our discussion applies wholly to the OpenJDK implementation.
+
+%TODO cite sources of OpenJDK, Oracle, Sun, comparisons, and source of similarity assumption
+
+The HotSpot JVM is designed as a premiere, high-performance environment for Java applications with a focus on performance optimization. On top of implementing the features required by the aforementioned Java Virtual Machine specification, HotSpot provides a number of options and operating modes for tuning for different use cases. This focus is embodied in HotSpot's implementation of the garbage collector and adaptive optimizer.
+
+\subsubsection{HotSpot Garbage Collector}
+
+Describe the modes of garbage collection we are doing. We should talk about exploring the other garbage collector options in the future work section.	
+
+\subsubsection{HotSpot Advanced Optimizer}
+
+Mostly hot spot detection and benefits it allows \cite{website:fermentas-lambda}.
 
 \subsection{Tesselation}
 
-%TODO: Make sure to talk about how Tesselation fits in with Xen for Kubi.
-
-%Typically, the body of a paper is organized
-%into a hierarchical structure, with numbered or unnumbered
-%headings for sections, subsections, sub-subsections, and even
-%smaller sections.  The command \texttt{{\char'134}section} that
-%precedes this paragraph is part of such a
-%hierarchy.\footnote{This is the second footnote.  It
-%starts a series of three footnotes that add nothing
-%informational, but just give an idea of how footnotes work
-%and look. It is a wordy one, just so you see
-%how a longish one plays out.} \LaTeX\ handles the numbering
-%and placement of these headings for you, when you use
-%the appropriate heading commands around the titles
-%of the headings.  If you want a sub-subsection or
-%smaller part to be unnumbered in your output, simply append an
-%asterisk to the command name.  Examples of both
-%numbered and unnumbered headings will appear throughout the
-%balance of this sample document.
-%
-%Because the entire article is contained in
-%the \textbf{document} environment, you can indicate the
-%start of a new paragraph with a blank line in your
-%input file; that is why this sentence forms a separate paragraph.
+The Tesselation manycore operating system is an architecture based on ARCC \cite{WinNT}
 
 \section{Dacapo}
 
