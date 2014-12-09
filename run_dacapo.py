@@ -23,7 +23,7 @@ def mkdir(directory, clean=False):
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-def cleanUp(options, procsAndFiles):
+def cleanUp(options, procsAndFiles, tracer):
     #Cleanup Scratch Directories
     for i in range(options.numjvms):
         subprocess.Popen(['rm', '-rf', 'scratch%d' % i])
@@ -38,6 +38,10 @@ def cleanUp(options, procsAndFiles):
     #Remove OSV Image Directory
     if options.xen:
         shutil.rmtree(OSV_IMAGE_DIR)
+
+    #Kill xentracer process
+    if tracer:
+        subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
 
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
@@ -175,6 +179,7 @@ def runDacapo(options):
 
                     outputdir = os.path.join(platformdir, "%s_%02djvms_%04dMB" % (benchmark, numjvms, heapsize))
                     if options.safe and os.path.exists(outputdir):
+                        subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
                         heapsize *= 2
                         continue
                     else:
@@ -256,7 +261,7 @@ def runDacapo(options):
                         proc.wait()
                         stdout.close()
                         stderr.close()
-                    tracer.kill()
+                    subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
                     heapsize *= 2
                 except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiments"
