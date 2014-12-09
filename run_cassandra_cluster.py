@@ -22,6 +22,10 @@ sslStoragePort = 7010
 nativeTrasportPort = 9042
 rpcPort = 9160
 
+def clearIps():
+	global localIps
+	localIps = []
+
 def make_dir(mydir):
 	if os.path.exists(mydir):
 		shutil.rmtree(mydir)
@@ -83,7 +87,7 @@ def shutdown_cassandra_instances():
 	print '> DONE'	
 
 def do_start(args):
-
+	clearIps()
 	# Init all path variables.
 	if hasattr(args, 'basedir')	:
 		basedir = os.path.join(args.basedir, 'cassandra_cluster')
@@ -240,10 +244,13 @@ def do_start(args):
 			nodeName = 'node' + str(nodeIndex)
 			myconfdir = os.path.join(confdir, clusterPrexfix, nodeName, 'conf')
 
-			srun_cmd = ['bash', 'run_cassandra.sh']
+			# srun_cmd = ['bash', 'run_cassandra.sh']
+			srun_cmd = [os.path.join(cassandra_home, 'bin/cassandra'), '-f']
 
 			myJmxPort = str(jmxPort + nodeIndex)
-			myenv = {'CASSANDRA_HOME': cassandra_home, 'CASSANDRA_CONF': myconfdir}
+			print myJmxPort
+			myenv = {'CASSANDRA_HOME': cassandra_home, 'CASSANDRA_CONF': myconfdir, 
+			'JVM_OPTS':'-Xss256k'}
 			#	'JMX_PORT' : myJmxPort}
 			myenv.update(os.environ)
 
@@ -255,12 +262,11 @@ def do_start(args):
 			fout = open(myoutfile, 'w')
 			ferr = open(myerrfile, 'w')
 			p = subprocess.Popen(srun_cmd, stdout=fout, stderr=ferr, env=myenv)
-			cassandra_instances['node' + str(nodeIndex)] = {'process': p, 'out': myoutfile, 'err': myerrfile}
+			cassandra_instances['node' + str(nodeIndex)] = {'process': p, 'out': myoutfile, 'err': myerrfile, 'pid':p.pid}
 
 	# When exiting, make sure all children are terminated cleanly
 	#if not hasattr(args, 'nosleep'):
-	atexit.register(shutdown_cassandra_instances)
-
+	print cassandra_instances
 	print '>'
 	print '> Waiting for all nodes to finish starting up...'
 	unfinished_nodes = cassandra_instances.keys()
@@ -292,6 +298,7 @@ def do_start(args):
 	if hasattr(args, 'nosleep'):
 		return cassandra_instances
 	else:
+		atexit.register(shutdown_cassandra_instances)
 		while True:
 			time.sleep(0.5)
 
