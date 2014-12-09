@@ -64,13 +64,7 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
   # Put a legend to the right of the current axis
   ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-  # Show the plot
-  if output_dir:
-    if not os.path.exists(output_dir):
-      os.makedirs(output_dir)
-    plt.savefig("%s/%s_runtimes.%s" % (output_dir, benchmark, output_extension))
-  else:
-    plt.show()
+  save_or_show_current(output_dir, 'runtimes', benchmark, output_extension)
 
 def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
   print "Parsing and plotting runtime slowdowns for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
@@ -91,23 +85,18 @@ def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, outpu
       keyed_by_mem_size[memsize].append((jvm_count, avg_runtime))
 
   for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
-    jvms = [0]+[t[0] for t in runtime_list]
-    slowdowns = [0]+[float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
+    jvms = [t[0] for t in runtime_list]
+    slowdowns = [float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
     ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
 
   # Apply labels
   plt.title("%s Runtime Slowdown with Increasing JVM Count" % benchmark)
   plt.ylabel("Slowdown")
   plt.xlabel("Number of JVMs")
+  plt.xlim(0, max(jvms)+2)
   plt.legend(loc='upper left')
 
-  # Show the plot
-  if output_dir:
-    if not os.path.exists(output_dir):
-      os.makedirs(output_dir)
-    plt.savefig("%s/%s.%s" % (output_dir, benchmark, output_extension))
-  else:
-    plt.show()
+  save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
 
 def parse_runtime_results(benchmark, benchmark_experiments, os_type):
   # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
@@ -138,6 +127,15 @@ def parse_runtime_results(benchmark, benchmark_experiments, os_type):
     jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
 
   return jvms_to_results
+
+def save_or_show_current(output_dir, subdirectory, benchmark, output_extension):
+  if output_dir:
+    dest_dir = "%s/%s" % (output_dir, subdirectory)
+    if not os.path.exists(dest_dir):
+      os.makedirs(dest_dir)
+    plt.savefig("%s/%s.%s" % (dest_dir, benchmark, output_extension))
+  else:
+    plt.show()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(prog='run')
