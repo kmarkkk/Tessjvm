@@ -137,6 +137,30 @@ The Tesselation manycore operating system is an architecture based on ARCC \cite
 %TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
 
 \subsection{Experimental Setup}
+\begin{figure}
+\centering
+\epsfig{file=figures/dacaposetupdiagramcrop.eps, height=3.75in, width=3in}
+\caption{The application layering of our experimental setup.}
+\label{fig:dacaposetup}
+\end{figure}
+
+Figure~\ref{fig:dacaposetup} showcases our experimental setup. Our setup uses the OpenJDK7 implementation of the Java platform. We deploy our JVMs in Virtual Machines running the OS$^{v}$ 0.13 Operating System \cite{aviOSv2014}. OS$^{v}$ VMs are run as guest domains on the Xen 4.4 hypervisor \cite{barham2003xen}. A custom Xen hypervisor (Xen4Tess) featuring a prototype implementation of a gang-scheduled CPU Pool is also used for our gang-scheduling experiments. The hypervisor runs on a 2-socket machine with 2 Intel Core i7-920 processors at 2.67GHz (4 cores per socket, Hyperthreading off,  8 total CPUs). Our test machine has 12GB of physical memory and runs Ubuntu 14.04.01. Each Xen guest domain runs with 6 vCPUs serviced by 6-CPU pool and is allocated 512MB of memory. We reserve 2 CPUs and 3GB of memory for Domain-0.  
+
+We only run a subset of the Dacapo benchmark suite in our experiments (avrora, jython, luindex, lusearch, xalan). This subset was chosen because other benchmarks within the suite have bugs when running within OS$^{v}$.
+
+We run two separate experiments using Dacapo. First, we measure the overall performance difference between running JVM's in parallel with and without gang scheduling of CPU resources. In our second experiment, we wish to explore the performance of the JIT compiler's code profiler and optimizer in the warmup phase during parallel JVM load.
+
+%TODO May need to change numbers in the following 2 paragraphs
+
+\subsubsection{Experiment 1: Overall Performance}
+For each benchmark in our subset, we run 1, 2, 4, 8, and 16 JVMs in parallel with maximum heapsizes 1x, 2x, 4x, and 8x times the minimum heapsize for the benchmark. The minimum heapsize for each benchmark is empirically determined by reducing the heapsize until an out of memory error occurs. We warmup our JVMs by running the benchmark for some number of iterations. The number of warmup iterations is empirically determined by calculating the average number of iterations needed until performance stabilizes. The execution times of the next 5 iterations after warmup are recorded and an arithmetic mean is reported as the benchmark runtime for each JVM. 
+%TODO What we did for GS?
+
+%TODO we may have changed this experiment
+
+\subsubsection{Experiment 2: JIT Compiler Performance}
+First, we run a single JVM in isolation with maximum heapsizes 1x, 2x, 4x, and 8x times the minimum heapsize for the benchmark. Similarly to Experiment 1, we record the execution times of the next 5 iterations after warmup and compute an arithmetic mean. Next we warm up a single JVM with the same heapsizes under the load of 15 other JVMs running in parallel. After warmup, we kill the other JVMs and run the single JVM in isolation; again computing the arithmetic mean of the execution times of the next 5 iterations. We repeat these steps for each combination of benchmark and heapsize 5 times recording 5 data points per combination.
+%TODO What we did for GS?
 
 \subsection{Results}
 

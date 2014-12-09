@@ -1,5 +1,11 @@
 \begin{thebibliography}{1}
 
+\bibitem{barham2003xen}
+P.~Barham, B.~Dragovic, K.~Fraser, S.~Hand, T.~Harris, A.~Ho, R.~Neugebauer,
+  I.~Pratt, and A.~Warfield.
+\newblock Xen and the art of virtualization.
+\newblock {\em ACM SIGOPS Operating Systems Review}, 37(5):164--177, 2003.
+
 \bibitem{colmenares2010resource}
 J.~A. Colmenares, S.~Bird, H.~Cook, P.~Pearce, D.~Zhu, J.~Shalf, S.~Hofmeyr,
   K.~Asanovic, and J.~Kubiatowicz.
@@ -19,6 +25,13 @@ D.~G. Feitelson and L.~Rudolph.
 \newblock Gang scheduling performance benefits for fine-grain synchronization.
 \newblock {\em Journal of Parallel and Distributed Computing}, 16(4):306--318,
   1992.
+
+\bibitem{aviOSv2014}
+A.~Kivity, D.~Laor, G.~Costa, P.~Enberg, N.~Har{\textquoteright}El, D.~Marti,
+  and V.~Zolotarov.
+\newblock Osv{\textemdash}optimizing the operating system for virtual machines.
+\newblock In {\em 2014 USENIX Annual Technical Conference (USENIX ATC 14)},
+  pages 61--72, Philadelphia, PA, 2014. USENIX Association.
 
 \bibitem{lindholm2014java}
 T.~Lindholm, F.~Yellin, G.~Bracha, and A.~Buckley.
