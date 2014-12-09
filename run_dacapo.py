@@ -159,6 +159,7 @@ def runDacapo(options):
 
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     procsAndFiles = None
+    tracer = None
     for benchmark in benchmarks:
         printVerbose(options, "Benchmark: %s" % benchmark)
         numBenchmarkIterations = convergences[benchmark] + 5
@@ -190,6 +191,9 @@ def runDacapo(options):
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
                             subprocess.check_call(cmd)
+
+                    # Start Xen Trace
+                    tracer = subprocess.Popen(["sudo", "xentrace", "-D", "-e", "0x0002f000", os.path.join(outputdir, 'trace_file.bin')])
 
                     for i in range(numjvms):
                         cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
@@ -252,17 +256,18 @@ def runDacapo(options):
                         proc.wait()
                         stdout.close()
                         stderr.close()
+                    tracer.kill()
                     heapsize *= 2
                 except (KeyboardInterrupt, subprocess.CalledProcessError) as e:
                     print "Detecting KeyboardInterrupt: Cleaning up Experiments"
-                    cleanUp(options, procsAndFiles)
+                    cleanUp(options, procsAndFiles, tracer)
                     raise e
             if numjvms == options.numjvms:
                 numjvms *= 2
             else:
                 numjvms = min(numjvms * 2, options.numjvms)
 
-    cleanUp(options, procsAndFiles)
+    cleanUp(options, procsAndFiles, tracer)
 
 
 if __name__ == "__main__":
