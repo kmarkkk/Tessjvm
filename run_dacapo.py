@@ -41,7 +41,7 @@ def cleanUp(options, procsAndFiles):
 
 def cleanUpTracer(tracer, trace_bin):
     subprocess.call(["sudo", "pkill", "-TERM", "-P", str(tracer.pid)])
-    output_dir = os.path.dirname(trace_bin)
+    outputdir = os.path.dirname(trace_bin)
     stdout = open(os.path.join(outputdir, 'xenalyze_summary'), 'w')
     stderr = open(os.path.join(outputdir, 'xenalyze_summary_err'), 'w')
     subprocess.call(["xenalyze", "--cpu-hz", "2.67G", "--summary", trace_bin], stdout=stdout, stderr=stderr)
