@@ -245,7 +245,7 @@ def runCassandra(options):
                 for t in xrange(YCSB_ITER):
                     ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout%02d' % (t + 1)), 'a')
                     ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d' % (t + 1)), 'a')
-                    subprocess.check_call(loadCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
+                    subprocess.check_call(runCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
                 print '>Done ycsb'
                 shutdown_cassandra_instances(cassandraXenInstances)
             else:
