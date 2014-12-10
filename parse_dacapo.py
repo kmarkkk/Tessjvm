@@ -112,7 +112,6 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
   print "Parsing and plotting gc slowdowns for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
 
   runtime_results = parse_gc(benchmark, benchmark_experiments, os_type)
-  print runtime_results
 
   if len(runtime_results) == 0:
     print "Not enough results found for %s. Skipping..." % benchmark
@@ -194,8 +193,8 @@ def parse_gc(benchmark, benchmark_experiments, os_type):
         filename = "/".join([exp_path, "stderr%02d" % jvm])
       with open(filename, 'r') as f:
         contents = f.read()
-      index_start = CONVERGENCES[benchmark]
-      index_end = index_start + 5
+      index_start = CONVERGENCES[benchmark] + 1
+      index_end = index_start + 4
       try:
         contents = re.findall(r"starting warmup %d ([\s\S]*) completed warmup %d" % (index_start, index_end), contents)[0]
       except:
