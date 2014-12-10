@@ -54,7 +54,7 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
     offset += bar_width
 
   # Apply labels and bounds
-  plt.title("%s Mean Run Times" % benchmark)
+  plt.title("%s Mean Total Run Times (5 Iterations)" % benchmark)
   plt.ylabel("Runtime (ms)")
   plt.xlabel("Memory Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
@@ -202,9 +202,9 @@ def parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=T
       if len(per_jvm_times) < 5:
         print "Unable to find 5 valid runtimes for %s" % exp
         continue
-      # We'll use the mean
+      # We'll use the sum
       if aggregate:
-        exp_times.append(np.mean(per_jvm_times))
+        exp_times.append(np.sum(per_jvm_times))
       else:
         exp_times += per_jvm_times
     # To find standard deviation for each experiment, call "np.std(exp_times)" here
