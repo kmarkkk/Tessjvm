@@ -32,18 +32,19 @@ def plot(plot_type, experiments, os_type, results_dir, output_dir, output_extens
   plt.ylabel(RESULT_LABELS[plot_type][1])
   plt.xlabel("Number of JVMs")
   plt.xlim(0, max(JVM_COUNTS)+1)
+  plt.ylim(0, max(metric_values)*1.1)
 
   save_or_show_current(output_dir, plot_type, output_extension)
 
 def parse_results(experiments, os_type):
-  # Returns dictionary of the form: {num_jvms -> YCSB_Result}
   jvms_to_results = defaultdict(list)
   for exp in experiments:
     jvm_count = int(re.search("(\d+)jvms$", exp).groups()[0])
     exp_path = "/".join([results_dir, YCSB_DIR, os_type, exp])
+    per_jvm_averages = defaultdict(list)
     for jvm in range(1, jvm_count+1):
       num_iterations = 5
-      results = defaultdict(list)
+      iter_results = defaultdict(list)
       for iteration in range(1, num_iterations+1):
         # Runtimes are logged in the stderr files on linux and stout files on xen
         if os_type == "xen":
@@ -53,15 +54,19 @@ def parse_results(experiments, os_type):
         with open(filename, 'r') as f:
           contents = f.read()
         # Store results from each iteration this JVM ran
-        results['ovr_runtime'].append(float(re.search("RunTime\(ms\), (\d+\.\d+)", contents).groups()[0]))
-        results['ovr_thruput'].append(float(re.search("Throughput\(ops/sec\), (\d+\.\d+)", contents).groups()[0]))
+        iter_results['ovr_runtime'].append(float(re.search("RunTime\(ms\), (\d+\.\d+)", contents).groups()[0]))
+        iter_results['ovr_thruput'].append(float(re.search("Throughput\(ops/sec\), (\d+\.\d+)", contents).groups()[0]))
         u_latency, r_latency, cleanup_latency = map(float, re.findall("AverageLatency\(us\), (\d+\.\d+)", contents))
-        results['u_latency'].append(u_latency)
-        results['r_latency'].append(r_latency)
-      # Average across iterations
-      averages = [np.mean(results[metric]) for metric in RESULT_METRICS]
-      # Append a single result for each JVM instance
-      jvms_to_results[jvm_count] = YCSB_Result(*averages)
+        iter_results['u_latency'].append(u_latency)
+        iter_results['r_latency'].append(r_latency)
+      # Record average across iterations for each JVM instance
+      for metric in RESULT_METRICS:
+        per_jvm_averages[metric].append(np.mean(iter_results[metric]))
+    # Record average across JVM instances for this experiment
+    cross_jvm_averages = []
+    for metric in RESULT_METRICS:
+      cross_jvm_averages.append(np.mean(per_jvm_averages[metric]))
+    jvms_to_results[jvm_count] = YCSB_Result(*cross_jvm_averages)
   return jvms_to_results
 
 def save_or_show_current(output_dir, plot_type, output_extension):
