@@ -253,7 +253,7 @@ def parse_gc(benchmark, benchmark_experiments, os_type):
 
 def save_or_show_current(output_dir, subdirectory, benchmark, output_extension, suffix=None):
   if output_dir:
-    dest_dir = "%s/%s" % (output_dir, subdirectory)
+    dest_dir = "%s/dacapo/%s" % (output_dir, subdirectory)
     if not os.path.exists(dest_dir):
       os.makedirs(dest_dir)
     if suffix:
