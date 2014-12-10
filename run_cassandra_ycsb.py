@@ -21,10 +21,10 @@ ipPrefix = "172.16.2.%d"
 ipStart = 3
 macAddr = "00:16:3e:16:02:%d"
 macStart = 69
-cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
+cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCApplicationStoppedTime -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
 YCSB_IP = "172.16.2.2"
 YCSB_MAC = "00:16:3e:16:02:68"
-ycsbXenCmdline = '--execute=--ip=eth0,%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada -%s -p "host=%s" -p port=9042 -p threadcount=2'
+ycsbXenCmdline = '--execute=--ip=eth0,%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada %s -p "host=%s" -p port=9042 -p threadcount=2'
 
 
 def clearCassandraInstances():
@@ -235,13 +235,13 @@ def runCassandra(options):
                       time.sleep(0.01)
                 print '>All canssadra domains are ready! Start ycsb...'
                 initCql(options, nodes[0])
-                loadCmd = ycsbXenRunCommand(options, ' '.join(nodes), 'load')
+                loadCmd = ycsbXenRunCommand(options, ' '.join(nodes), '-load')
                 print nodes
                 ycsbLoadOut = open(os.path.join(outputdir, 'ycsbloadstdout'), 'a')
                 ycsbLoadErr = open(os.path.join(outputdir, 'ycsbloadstderr'), 'a')
                 print loadCmd
                 subprocess.check_call(loadCmd, stdout=ycsbLoadOut, stderr=ycsbLoadErr)
-                runCmd = ycsbXenRunCommand(options, ' '.join(nodes), 'run')
+                runCmd = ycsbXenRunCommand(options, ' '.join(nodes), '-t')
                 for t in xrange(YCSB_ITER):
                     ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout%02d' % (t + 1)), 'a')
                     ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d' % (t + 1)), 'a')
