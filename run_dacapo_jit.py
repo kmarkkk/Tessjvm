@@ -103,7 +103,7 @@ def waitForNIterations(stdout, test, pid, numIterations):
     while True:
         with open(stdout, 'r') as fout:
             output = fout.read()
-            if ("completed warmup %d" % numIterations) in output or '[backtrace]' in output::
+            if ("completed warmup %d" % numIterations) in output or '[backtrace]' in output:
                 break
         #Wait 1 Second before checking again
         time.sleep(1)
