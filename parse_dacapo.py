@@ -41,7 +41,7 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
   memory_sizes = MEM_SIZES[benchmark]
   xs = range(1,len(memory_sizes)+1)
   bar_width, offset = 0.1, -0.2 # These offset the bar series from each other. Designed for 5 bar series.
-  color_iter = iter(['b', 'g', 'r', 'c', 'm', 'y', '#989898']) # Colors for successive bar series
+  color_iter = iter(['#8FE3FF', '#FFC94D', '#FF6363', '#4EC6CC', '#989898']) # Colors for successive bar series
 
   plt.clf()
   ax = plt.subplot(111)
@@ -49,8 +49,8 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
   ax.set_xlim(0, len(memory_sizes)+1)
 
   for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
-    avg_runtimes = [memsize_to_results[memsize] for memsize in memory_sizes]
-    ax.bar([x + offset for x in xs], avg_runtimes, width=bar_width, color=next(color_iter), align="center", label="%d JVMs" % jvm_count)
+    avg_runtimes, errors = zip(*[memsize_to_results[memsize] for memsize in memory_sizes])
+    ax.bar([x + offset for x in xs], avg_runtimes, width=bar_width, color=next(color_iter), align="center", label="%d JVMs" % jvm_count, yerr=errors, error_kw={'ecolor': 'k', 'capsize': 4})
     offset += bar_width
 
   # Apply labels and bounds
@@ -68,7 +68,7 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
 def plot_cdfs(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
   print "Parsing and plotting runtime results for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
 
-  runtime_results = parse_runtime_results(benchmark, benchmark_experiments, os_type, False)
+  runtime_results = parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=False)
 
   if len(runtime_results) == 0:
     print "Not enough results found for %s. Skipping..." % benchmark
@@ -119,8 +119,8 @@ def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, outpu
   # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
   keyed_by_mem_size = defaultdict(list)
   for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
-    for memsize, avg_runtime in memsize_to_results.iteritems():
-      keyed_by_mem_size[memsize].append((jvm_count, avg_runtime))
+    for memsize, runtime_stddev in memsize_to_results.iteritems():
+      keyed_by_mem_size[memsize].append((jvm_count, runtime_stddev[0]))
 
   max_slowdown = 0
   for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
@@ -177,7 +177,7 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
 
   save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
 
-def parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=True):
+def parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=True, stddev=False):
   # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
   jvms_to_results = defaultdict(lambda : defaultdict(int))
   for exp in benchmark_experiments:
@@ -202,14 +202,14 @@ def parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=T
       if len(per_jvm_times) < 5:
         print "Unable to find 5 valid runtimes for %s" % exp
         continue
-      # We'll use the sum
+      # We'll use the mean
       if aggregate:
-        exp_times.append(np.sum(per_jvm_times))
+        exp_times.append(np.mean(per_jvm_times))
       else:
         exp_times += per_jvm_times
     # To find standard deviation for each experiment, call "np.std(exp_times)" here
     if aggregate:
-      jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
+      jvms_to_results[num_jvms][mem_size] = (np.mean(exp_times), np.std(exp_times))
     else:
       jvms_to_results[num_jvms][mem_size] = exp_times
 
