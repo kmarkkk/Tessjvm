@@ -10,6 +10,7 @@ import atexit
 import run_cassandra_cluster
 import re
 import time
+from threading import ThreadPriorityPolicy
 from subprocess import Popen, PIPE
 
 YCSB_ITER = 5
@@ -18,13 +19,13 @@ YOUNG_RATIO = 0.7
 OSV_IMAGE_DIR = "osv_images"
 #ipPrefix = "169.229.48.%d"
 ipPrefix = "172.16.2.%d"
-ipStart = 3
+cassandraIpStart = 3
 macAddr = "00:16:3e:16:02:%d"
-macStart = 69
-cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCApplicationStoppedTime -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
-YCSB_IP = "172.16.2.2"
-YCSB_MAC = "00:16:3e:16:02:68"
-ycsbXenCmdline = '--execute=--ip=eth0,%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada %s -p "host=%s" -p port=9042 -p threadcount=2'
+cassandraMacStart = 69
+cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
+ycsbIpStart = 30
+ycsbMacStart = 80
+ycsbXenCmdline = '--execute=--ip=eth0,172.16.2.%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada %s -p "host=%s" -p port=9042 -p threadcount=2 -p operationcount=10000'
 
 
 def clearCassandraInstances():
@@ -65,6 +66,13 @@ def cleanUp(options, procsAndFiles):
     if options.xen:
         shutil.rmtree(OSV_IMAGE_DIR)
 
+def makeOSvYcsbCopies(options, numCopies):
+    mkdir(OSV_IMAGE_DIR)
+    basename = os.path.basename(options.ycsb_image)
+    for i in range(numCopies):
+        image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
+        subprocess.call(['cp', options.image, image_path])
+
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
     for i in xrange(numCopies):
@@ -99,16 +107,18 @@ def parseMemory():
 def cassandraXenRunCommand(options, i):
     image_path = os.path.join(OSV_IMAGE_DIR, "cassandra.qemu_%d" % (i + 1))
     cmd = ["./scripts/run.py", "-i", image_path, "-c", options.vcpus, "-p", "xen", "-a", options.cpus, "-m", options.memsize, "--cpupool", options.cpupool, "-n",
-    "--bridge", "xenbr1", "--mac", macAddr % (macStart + i)]
+    "--bridge", "xenbr1", "--mac", macAddr % (cassandraMacStart + i)]
     if options.losetup:
         cmd += ["-l"]
     print cmd
     return cmd
 
-def ycsbXenRunCommand(options, hosts, phrase):
+def ycsbXenRunCommand(options, i, ycsbMem):
     ycsbCmd = ycsbXenCmdline % (YCSB_IP, phrase, hosts)
     ycsbCmd += ' ' + options.ycsb_cmd
-    cmd = ["./scripts/run.py", "-t", "ycsb", "-i", options.ycsb_image, "-c", options.vcpus, "-p", "xen", "-m", options.memsize, "-a", options.cpus, "--cpupool", options.cpupool, "-n", "--bridge", "xenbr1", "--mac", YCSB_MAC, ycsbCmd]
+    cmd = ["./scripts/run.py", "-t", "ycsb", "-i", options.ycsb_image, "-c", options.vcpus, 
+    "-p", "xen", "-m", str(ycsbMem), "-a", options.cpus, "--cpupool", options.cpupool, 
+    "-n", "--bridge", "xenbr1", "--mac", macAddr % (ycsbMacStart + i)]
     if options.losetup:
         cmd += ["-l"]
     return cmd
@@ -161,6 +171,7 @@ def runCassandra(options):
 
     if options.xen:
         makeOSvImageCopies(options, options.numjvms)
+        makeOSvYcsbCopies(options, options.numjvms)
         print '>Done makign image copies...'
         options.heap = (int)(options.memsize * HEAP_RATIO)
         options.young = (int)(options.memsize * YOUNG_RATIO)
@@ -194,7 +205,6 @@ def runCassandra(options):
 
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     numjvms = options.startjvm
-    procsAndFiles = []
     while numjvms <= options.numjvms:
         printVerbose(options, "Num JVMs: %d" % numjvms)
         try:
@@ -205,14 +215,14 @@ def runCassandra(options):
                 nodes = []
                 cassandraXenInstances = {}
                 for t in xrange(numjvms):
-                    cassandraCmdline = cassandraXenCmdline % (ipStart + t, options.heap, options.heap, options.young)
+                    cassandraCmdline = cassandraXenCmdline % (cassandraIpStart + t, options.heap, options.heap, options.young)
                     cmd = cassandraXenRunCommand(options, t)
                     cmd += ['--execute=' + cassandraCmdline]
                     cmd += ['--set-image-only']
                     subprocess.check_call(cmd)
-                print '>Done set image command arg'
+                print '>Done set cassandra image command arg'
                 for t in xrange(numjvms):
-                    nodes.append(ipPrefix % (ipStart + t))
+                    nodes.append(ipPrefix % (cassandraIpStart + t))
                     cmd = cassandraXenRunCommand(options, t)
                     printVerbose(options, " ".join(cmd))
                     stdoutFile = os.path.join(outputdir, 'stdout%02d' % (t + 1))
@@ -224,28 +234,58 @@ def runCassandra(options):
                 unfinished_nodes= cassandraXenInstances.keys()
                 print '>Now waiting for all cassandra instances set up'
                 while unfinished_nodes:
-                      done_nodes = []
-                      for node in unfinished_nodes:
-                          with open(cassandraXenInstances[node]['out'], 'r') as fout:
-                              outdata = fout.read()   
-                          if re.search("Listening for thrift clients...", outdata) != None:
-                              done_nodes.append(node)
-                      for node in done_nodes:
-                          unfinished_nodes.remove(node)
-                      time.sleep(0.01)
+                    done_nodes = []
+                    for node in unfinished_nodes:
+                         with open(cassandraXenInstances[node]['out'], 'r') as fout:
+                            outdata = fout.read()   
+                         if re.search("Listening for thrift clients...", outdata) != None:
+                            done_nodes.append(node)
+                    for node in done_nodes:
+                        unfinished_nodes.remove(node)
+                    time.sleep(0.1)
                 print '>All canssadra domains are ready! Start ycsb...'
-                initCql(options, nodes[0])
-                loadCmd = ycsbXenRunCommand(options, ' '.join(nodes), '-load')
-                print nodes
-                ycsbLoadOut = open(os.path.join(outputdir, 'ycsbloadstdout'), 'a')
-                ycsbLoadErr = open(os.path.join(outputdir, 'ycsbloadstderr'), 'a')
-                print loadCmd
-                subprocess.check_call(loadCmd, stdout=ycsbLoadOut, stderr=ycsbLoadErr)
-                runCmd = ycsbXenRunCommand(options, ' '.join(nodes), '-t')
-                for t in xrange(YCSB_ITER):
-                    ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout%02d' % (t + 1)), 'a')
-                    ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d' % (t + 1)), 'a')
-                    subprocess.check_call(runCmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
+                for node in nodes:
+                    initCql(options, node)
+                print '>Done init all cqls'
+                for t in xrange(numjvms):
+                    ycsbXenCmdline = ycsbXenCmdline % (ycsbIpStart + t, nodes[t], '-load')
+                    cmd = ycsbXenRunCommand(options, t, 512)
+                    cmd += ['--execute=' + ycsbXenCmdline]
+                    cmd += ['--set-image-only']
+                    subprocess.check_call(cmd)
+                print '>Done set ycsb image load command arg'
+                procsAndFiles = []
+                for t in xrange(numjvms):
+                    cmd = ycsbXenRunCommand(options, t, 512)
+                    ycsbLoadOut = open(os.path.join(outputdir, 'ycsbloadstdout%02d' % (t + 1)), 'a')
+                    ycsbLoadErr = open(os.path.join(outputdir, 'ycsbloadstderr%02d' % (t + 1)), 'a')
+                    proc = subprocess.Popen(cmd, stdout=ycsbLoadOut, stderr=ycsbLoadErr)
+                    procsAndFiles.append((proc, stdout, stderr, t))
+                waitForProcs(procsAndFiles)
+                print '>Done loading phrases'
+                for t in xrange(numjvms):
+                    ycsbXenCmdline = ycsbXenCmdline % (ycsbIpStart + t, nodes[t], '-load')
+                    cmd = ycsbXenRunCommand(options, t, 512)
+                    cmd += ['--execute=' + ycsbXenCmdline]
+                    cmd += ['--set-image-only']
+                    subprocess.check_call(cmd)
+                print '>Done set ycsb image load command arg'
+                for t in xrange(numjvms):
+                    ycsbXenCmdline = ycsbXenCmdline % (ycsbIpStart + t, nodes[t], '-t')
+                    cmd = ycsbXenRunCommand(options, t, 512)
+                    cmd += ['--execute=' + ycsbXenCmdline]
+                    cmd += ['--set-image-only']
+                    subprocess.check_call(cmd)
+                print '>Done set ycsb image run command arg'
+                threads = []
+                for t in xrange(numjvms):
+                    cmd = ycsbXenRunCommand(options, t, 512)
+                    thread = Thread(target=runRunPhrase, args=(cmd, t, YCSB_ITER, outputdir))
+                    threads.append(thread)
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join()
                 print '>Done ycsb'
                 shutdown_cassandra_instances(cassandraXenInstances)
             else:
@@ -283,11 +323,7 @@ def runCassandra(options):
                         proc = subprocess.Popen(ycsbCmd, stdout=stdout, stderr=stderr)
                     proc.wait()
                 shutdown_cassandra_instances(cassandra_instances)
-            while procsAndFiles:
-                proc, stdout, stderr = procsAndFiles.pop()
-                proc.wait()
-                stdout.close()
-                stderr.close()
+
         except KeyboardInterrupt as e:
             print "Detecting KeyboardInterrupt: Cleaning up Experiements"
             cleanUp(options, procsAndFiles)
@@ -303,6 +339,20 @@ def runCassandra(options):
         time.sleep(10)
     cleanUp(options, procsAndFiles)
 
+def runRunPhrase(cmd, t, iteratiions, outputdir):
+    for i in xrange(iteratiions):
+        ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout%02d%02d' % (t + 1, i + 1)), 'a')
+        ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d%02d' % (t + 1, i + 1)), 'a')
+        subprocess.check_call(cmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
+        ycsbRunOut.close()
+        ycsbRunErr.close()
+
+def waitForProcs(procsAndFiles):
+    while procsAndFiles:
+        proc, stdout, stderr = procsAndFiles.pop()
+        proc.wait()
+        stdout.close()
+        stderr.close()
 
 
 if __name__ == "__main__":
