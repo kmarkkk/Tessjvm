@@ -103,7 +103,7 @@ def waitForNIterations(stdout, test, pid, numIterations):
     while True:
         with open(stdout, 'r') as fout:
             output = fout.read()
-            if ("completed warmup %d" % numIterations) in output:
+            if ("completed warmup %d" % numIterations) in output or '[backtrace]' in output::
                 break
         #Wait 1 Second before checking again
         time.sleep(1)
@@ -187,7 +187,8 @@ def runDacapo(options):
                             subprocess.check_call(cmd)
 
                     for i in range(numjvms):
-                        cmd = ['java', '-Xmx%dM' % heapsize, '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
+                        cmd = ['java', '-Xmx%dM' % heapsize, '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDetails', '-XX:+UseParallelOldGC',
+                                '-jar', options.dacapo, '--scratch-directory', 'scratch%d' % i, "-n", str(numBenchmarkIterations), benchmark]
 
                         if options.xen:
                             cmd = dacapoXenRunCommand(options, i, numjvms)
