@@ -7,6 +7,7 @@ import re
 import argparse
 import json
 from collections import defaultdict
+from scipy.stats import cumfreq
 
 DACAPO_DIR='dacapo'
 DACAPO_BENCHMARKS = ['avrora', 'h2', 'jython', 'luindex', 'lusearch', 'xalan']
@@ -24,15 +25,8 @@ JVM_COUNTS = {'avrora': [1, 2, 4, 8, 16, 32],
               'lusearch': [1, 2, 4, 8, 16, 32],
               'xalan': [1, 2, 4, 8, 16, 24, 32]
               }
-
-def getDacapoConvergences():
-    try:
-        with open('dacapo_convergences.json', 'r') as f: 
-            return json.load(f)
-    except IOError:
-      return None
-
-CONVERGENCES = getDacapoConvergences()
+with open('dacapo_convergences.json', 'r') as f:
+  CONVERGENCES = json.load(f)
 
 def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
   print "Parsing and plotting runtime results for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
@@ -46,12 +40,8 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
   # Initialize values we'll need for the x-axis
   memory_sizes = MEM_SIZES[benchmark]
   xs = range(1,len(memory_sizes)+1)
-  # These offset the bar series from each other. Designed for 5 bar series.
-  bar_width = 0.1
-  offset = -0.2
-
-  # Colors for successive bar series
-  color_iter = iter(['b', 'g', 'r', 'c', 'm', 'y', '#989898'])
+  bar_width, offset = 0.1, -0.2 # These offset the bar series from each other. Designed for 5 bar series.
+  color_iter = iter(['b', 'g', 'r', 'c', 'm', 'y', '#989898']) # Colors for successive bar series
 
   plt.clf()
   ax = plt.subplot(111)
@@ -63,18 +53,56 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
     ax.bar([x + offset for x in xs], avg_runtimes, width=bar_width, color=next(color_iter), align="center", label="%d JVMs" % jvm_count)
     offset += bar_width
 
-  # Apply labels
+  # Apply labels and bounds
   plt.title("%s Mean Run Times" % benchmark)
   plt.ylabel("Runtime (ms)")
   plt.xlabel("Memory Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
+  # Move legend to the right
   box = ax.get_position()
   ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-
-  # Put a legend to the right of the current axis
   ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
   save_or_show_current(output_dir, 'runtimes', benchmark, output_extension)
+
+def plot_cdfs(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
+  print "Parsing and plotting runtime results for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
+
+  runtime_results = parse_runtime_results(benchmark, benchmark_experiments, os_type, False)
+
+  if len(runtime_results) == 0:
+    print "Not enough results found for %s. Skipping..." % benchmark
+    return
+
+  keyed_by_mem_size = defaultdict(list)
+  for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
+    for memsize, runtimes in memsize_to_results.iteritems():
+      keyed_by_mem_size[memsize].append((jvm_count, runtimes))
+
+  for mem_size, jvm_to_runtimes in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
+    plt.clf()
+    ax = plt.subplot(111)
+    longest_time = max(reduce(lambda x,y: x + y, [t[1] for t in jvm_to_runtimes]))
+    shortest_time = min(reduce(lambda x,y: x + y, [t[1] for t in jvm_to_runtimes]))
+    for jvm_count, runtime_list in jvm_to_runtimes:
+      cum_freqs, ll, binsize, xp = cumfreq(runtime_list, numbins=len(runtime_list))
+      normed_cum_freqs = map(lambda x: x/max(cum_freqs), cum_freqs)
+      padded_x = [shortest_time*0.8, min(runtime_list)] + sorted(runtime_list) + [longest_time*1.1]
+      padded_y = [0, 0] + normed_cum_freqs + [1]
+      ax.plot(padded_x, padded_y, label="%d JVMs" % jvm_count)
+
+    # Apply labels and bounds
+    plt.title("%s Cumulative Distribution Function (%d MB Heap)" % (benchmark, mem_size))
+    plt.ylabel("Fraction of Jobs Completed")
+    plt.xlabel("Time (ms)")
+    plt.xlim(shortest_time*0.8, longest_time*1.1)
+    plt.ylim(-0.025, 1.025)
+    # Move legend to the right1
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+    save_or_show_current(output_dir, 'cdfs', benchmark, output_extension, suffix='%03dMB' % mem_size)
 
 def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
   print "Parsing and plotting runtime slowdowns for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
@@ -94,16 +122,20 @@ def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, outpu
     for memsize, avg_runtime in memsize_to_results.iteritems():
       keyed_by_mem_size[memsize].append((jvm_count, avg_runtime))
 
+  max_slowdown = 0
   for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
     jvms = [t[0] for t in runtime_list]
     slowdowns = [float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
+    max_slowdown = max([max_slowdown] + slowdowns)
     ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
 
-  # Apply labels
+  # Apply labels and bounds
   plt.title("%s Runtime Slowdown with Increasing JVM Count" % benchmark)
   plt.ylabel("Slowdown")
   plt.xlabel("Number of JVMs")
-  plt.xlim(0, max(jvms)+2)
+  plt.xlim(0, max(jvms)*1.1)
+  plt.ylim(0, max_slowdown*1.1)
+
   plt.legend(loc='upper left')
 
   save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
@@ -128,21 +160,24 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
     for memsize, avg_runtime in memsize_to_results.iteritems():
       keyed_by_mem_size[memsize].append((jvm_count, avg_runtime[GC_INDEX]))
 
+  max_slowdown = 0
   for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
     jvms = [t[0] for t in runtime_list]
     slowdowns = [float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
+    max_slowdown = max(max_slowdown + slowdowns)
     ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
 
-  # Apply labels
+  # Apply labels and bounds
   plt.title("%s %s GC Runtime Slowdown with Increasing JVM Count" % (benchmark, GC_TYPE))
   plt.ylabel("Slowdown")
   plt.xlabel("Number of JVMs")
-  plt.xlim(0, max(jvms)+2)
+  plt.xlim(0, max(jvms)*1.1)
+  plt.ylim(0, max_slowdown*1.1)
   plt.legend(loc='upper left')
 
   save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
 
-def parse_runtime_results(benchmark, benchmark_experiments, os_type):
+def parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=True):
   # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
   jvms_to_results = defaultdict(lambda : defaultdict(int))
   for exp in benchmark_experiments:
@@ -165,13 +200,18 @@ def parse_runtime_results(benchmark, benchmark_experiments, os_type):
       index_end = index_start + 5
       per_jvm_times = all_per_jvm_times[index_start:index_end]
       if len(per_jvm_times) < 5:
-        print len(per_jvm_times), jvm
         print "Unable to find 5 valid runtimes for %s" % exp
         continue
       # We'll use the sum
-      exp_times.append(np.sum(per_jvm_times))
+      if aggregate:
+        exp_times.append(np.sum(per_jvm_times))
+      else:
+        exp_times += per_jvm_times
     # To find standard deviation for each experiment, call "np.std(exp_times)" here
-    jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
+    if aggregate:
+      jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
+    else:
+      jvms_to_results[num_jvms][mem_size] = exp_times
 
   return jvms_to_results
 
@@ -211,12 +251,15 @@ def parse_gc(benchmark, benchmark_experiments, os_type):
 
   return jvms_to_results
 
-def save_or_show_current(output_dir, subdirectory, benchmark, output_extension):
+def save_or_show_current(output_dir, subdirectory, benchmark, output_extension, suffix=None):
   if output_dir:
     dest_dir = "%s/%s" % (output_dir, subdirectory)
     if not os.path.exists(dest_dir):
       os.makedirs(dest_dir)
-    plt.savefig("%s/%s.%s" % (dest_dir, benchmark, output_extension))
+    if suffix:
+      plt.savefig("%s/%s_%s.%s" % (dest_dir, benchmark, suffix, output_extension))
+    else:
+      plt.savefig("%s/%s.%s" % (dest_dir, benchmark, output_extension))
   else:
     plt.show()
 
@@ -241,6 +284,8 @@ if __name__ == "__main__":
     plotter = plot_slowdowns
   elif cmdargs.type == 'gc':
     plotter = plot_gc
+  elif cmdargs.type == 'cdf':
+    plotter= plot_cdfs
   else:
     raise ValueError("Unknown graph type")
 
