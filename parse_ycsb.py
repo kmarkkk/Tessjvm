@@ -69,6 +69,70 @@ def parse_results(experiments, os_type):
     jvms_to_results[jvm_count] = YCSB_Result(*cross_jvm_averages)
   return jvms_to_results
 
+def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
+  print "Parsing and plotting gc slowdowns for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
+
+  runtime_results = parse_gc(benchmark, benchmark_experiments, os_type)
+
+  if len(runtime_results) == 0:
+    print "Not enough results found for %s. Skipping..." % benchmark
+    return
+
+  plt.clf()
+  ax = plt.subplot(111)
+
+  GC_TYPE, GC_INDEX = "Minor", 1
+
+  # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
+  keyed_by_mem_size = defaultdict(list)
+  for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
+    for memsize, avg_runtime in memsize_to_results.iteritems():
+      keyed_by_mem_size[memsize].append((jvm_count, avg_runtime[GC_INDEX]))
+
+  max_slowdown = 0
+  for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
+    jvms = [t[0] for t in runtime_list]
+    slowdowns = [float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
+    max_slowdown = max(max_slowdown + slowdowns)
+    ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
+
+  # Apply labels and bounds
+  plt.title("%s %s GC Runtime Slowdown with Increasing JVM Count" % (benchmark, GC_TYPE))
+  plt.ylabel("Slowdown")
+  plt.xlabel("Number of JVMs")
+  plt.xlim(0, max(jvms)*1.1)
+  plt.ylim(0, max_slowdown*1.1)
+  plt.legend(loc='upper left')
+
+  save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
+
+def parse_gc(experiments, os_type):
+  # Returns dictionary of the form: {num_jvms -> {mem_size -> (minior avg_runtime_s, major avg_runtime_s}}
+  jvms_to_results = defaultdict(lambda : defaultdict(int))
+  for exp in experiments:
+    jvm_count = int(re.search("(\d+)jvms$", exp).groups()[0])
+    exp_path = os.path.join(results_dir, YCSB_DIR, os_type, exp)
+    num_iterations = 5
+    results = []
+    exp_times = []
+    for jvm in xrange(1, jvm_count+1):
+      # Runtimes are logged in the stderr files on linux and stout files on xen
+      if os_type == "xen":
+        filename = os.path.join(exp_path, "stdout%02d" % jvm)
+      else:
+        filename = os.path.join(exp_path, "stderr%02d" % jvm)
+      with open(filename, 'r') as f:
+        contents = f.read()
+
+      major_gc_per_jvm_times = map(float, re.findall(r"\[Full GC.*, ([.\d]*) secs", contents))
+      minor_gc_per_jvm_times = map(float, re.findall(r"\[GC.*, ([.\d]*) secs", contents))
+      # We'll use the sum
+      exp_times.append((np.sum(major_gc_per_jvm_times), np.sum(minor_gc_per_jvm_times)))
+    # To find standard deviation for each experiment, call "np.std(exp_times)" here
+    major_times, minor_times = zip(*exp_times)
+    jvms_to_results[jvm_count] = (np.mean(major_times), np.mean(minor_times))
+  return jvms_to_results
+
 def save_or_show_current(output_dir, plot_type, output_extension):
   if output_dir:
     dest_dir = "%s/ycsb" % output_dir
@@ -96,6 +160,8 @@ if __name__ == "__main__":
   if cmdargs.type == 'all':
     for metric in RESULT_METRICS:
       plot(metric, experiments, cmdargs.xen, results_dir, cmdargs.outputdir, cmdargs.extension)
+  elif cmdargs.type == 'gc':
+    parse_gc(experiments, cmdargs.xen)
   else:
     plot(cmdargs.type, experiments, cmdargs.xen, results_dir, cmdargs.outputdir, cmdargs.extension)
 
