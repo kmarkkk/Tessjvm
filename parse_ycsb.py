@@ -8,11 +8,16 @@ import argparse
 from collections import defaultdict, namedtuple
 
 YCSB_DIR = 'cassandra_ycsb'
-RESULT_METRICS = ['ovr_runtime', 'ovr_thruput', 'r_latency', 'u_latency']
+RESULT_METRICS = ['ovr_runtime', 'ovr_thruput', 'r_latency', 'r_95_latency', 'r_99_latency', 'u_latency', 'u_95_latency', 'u_99_latency']
 RESULT_LABELS = {'ovr_runtime': ('Average Overall Runtime', 'Time (ms)'),
                  'ovr_thruput': ('Average Overall Throughput', 'Operations per second'),
+                 'r_95_latency': ('95th Percentile Read Latency', 'Latency(ms)'),
+                 'r_99_latency': ('99th Percentile Read Latency', 'Latency(ms)'),
                  'r_latency': ('Read Operation Latency', u'Latency (\u03bcs)'),
-                 'u_latency': ('Update Operation Latency', u'Latency \u03bcs)')}
+                 'u_latency': ('Update Operation Latency', u'Latency \u03bcs)'),
+                 'u_95_latency': ('95th Percentile Update Latency', 'Latency(ms)'),
+                 'u_99_latency': ('99th Percentile Update Latency', 'Latency(ms)'),
+                 }
 
 YCSB_Result = namedtuple('YCSB_Result', RESULT_METRICS)
 
@@ -57,8 +62,14 @@ def parse_results(experiments, os_type):
         iter_results['ovr_runtime'].append(float(re.search("RunTime\(ms\), (\d+\.\d+)", contents).groups()[0]))
         iter_results['ovr_thruput'].append(float(re.search("Throughput\(ops/sec\), (\d+\.\d+)", contents).groups()[0]))
         u_latency, r_latency, cleanup_latency = map(float, re.findall("AverageLatency\(us\), (\d+\.\d+)", contents))
+        u_95_latency, r_95_latency, cleanup_95_latency = map(float, re.findall("95thPercentileLatency\(ms\), (\d+)", contents))
+        u_99_latency, r_99_latency, cleanup_99_latency = map(float, re.findall("99thPercentileLatency\(ms\), (\d+)", contents))
         iter_results['u_latency'].append(u_latency)
         iter_results['r_latency'].append(r_latency)
+        iter_results['r_95_latency'].append(r_95_latency)
+        iter_results['r_99_latency'].append(r_99_latency)
+        iter_results['u_95_latency'].append(u_95_latency)
+        iter_results['u_99_latency'].append(u_99_latency)
       # Record average across iterations for each JVM instance
       for metric in RESULT_METRICS:
         per_jvm_averages[metric].append(np.mean(iter_results[metric]))
@@ -69,42 +80,22 @@ def parse_results(experiments, os_type):
     jvms_to_results[jvm_count] = YCSB_Result(*cross_jvm_averages)
   return jvms_to_results
 
-def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
-  print "Parsing and plotting gc slowdowns for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
-
-  runtime_results = parse_gc(benchmark, benchmark_experiments, os_type)
-
-  if len(runtime_results) == 0:
-    print "Not enough results found for %s. Skipping..." % benchmark
-    return
-
+def plot_gc(experiments, os_type):
+  print "Parsing and plotting gc slowdowns ...\n"
+  runtime_results = parse_gc(experiments, os_type)
   plt.clf()
-  ax = plt.subplot(111)
-
-  GC_TYPE, GC_INDEX = "Minor", 1
-
-  # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
-  keyed_by_mem_size = defaultdict(list)
-  for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
-    for memsize, avg_runtime in memsize_to_results.iteritems():
-      keyed_by_mem_size[memsize].append((jvm_count, avg_runtime[GC_INDEX]))
-
-  max_slowdown = 0
-  for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
-    jvms = [t[0] for t in runtime_list]
-    slowdowns = [float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
-    max_slowdown = max(max_slowdown + slowdowns)
-    ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
-
-  # Apply labels and bounds
-  plt.title("%s %s GC Runtime Slowdown with Increasing JVM Count" % (benchmark, GC_TYPE))
-  plt.ylabel("Slowdown")
+  major =  map(lambda x: x[0], runtime_results.values())
+  minor = map(lambda x: x[1], runtime_results.values())
+  plt.plot(JVM_COUNTS, major, '-d')
+  plt.plot(JVM_COUNTS, minor, '-d')
+  plt.legend(['Major GC', 'Minor GC'], loc='upper left')
+  plt.title('Cassandra GC(Concurrent Mark Sweep) time plot')
+  plt.ylabel('Total GC time')
   plt.xlabel("Number of JVMs")
-  plt.xlim(0, max(jvms)*1.1)
-  plt.ylim(0, max_slowdown*1.1)
-  plt.legend(loc='upper left')
+  plt.xlim(0, max(JVM_COUNTS)+1)
+  plt.ylim(0, max(major + minor)*1.1)
+  plt.show()
 
-  save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
 
 def parse_gc(experiments, os_type):
   # Returns dictionary of the form: {num_jvms -> {mem_size -> (minior avg_runtime_s, major avg_runtime_s}}
@@ -124,8 +115,8 @@ def parse_gc(experiments, os_type):
       with open(filename, 'r') as f:
         contents = f.read()
 
-      major_gc_per_jvm_times = map(float, re.findall(r"\[Full GC.*, ([.\d]*) secs", contents))
-      minor_gc_per_jvm_times = map(float, re.findall(r"\[GC.*, ([.\d]*) secs", contents))
+      major_gc_per_jvm_times = map(float, re.findall(r"CMS.*real=(\d+.\d*) secs", contents))
+      minor_gc_per_jvm_times = map(float, re.findall(r"\[GC.*real=(\d+.\d*) secs", contents))
       # We'll use the sum
       exp_times.append((np.sum(major_gc_per_jvm_times), np.sum(minor_gc_per_jvm_times)))
     # To find standard deviation for each experiment, call "np.std(exp_times)" here
@@ -161,7 +152,7 @@ if __name__ == "__main__":
     for metric in RESULT_METRICS:
       plot(metric, experiments, cmdargs.xen, results_dir, cmdargs.outputdir, cmdargs.extension)
   elif cmdargs.type == 'gc':
-    parse_gc(experiments, cmdargs.xen)
+    plot_gc(experiments, cmdargs.xen)
   else:
     plot(cmdargs.type, experiments, cmdargs.xen, results_dir, cmdargs.outputdir, cmdargs.extension)
 
