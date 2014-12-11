@@ -55,7 +55,7 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
     offset += bar_width
 
   # Apply labels and bounds
-  plt.title("%s Mean Total Run Times (5 Iterations)" % benchmark)
+  plt.title("%s Mean Total Runtimes (5 Iterations)" % benchmark)
   plt.ylabel("Runtime (ms)")
   plt.xlabel("Maximum Allocated Heap Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
@@ -93,7 +93,7 @@ def plot_cdfs(benchmark, benchmark_experiments, os_type, results_dir, output_dir
       ax.plot(padded_x, padded_y, label="%d JVMs" % jvm_count)
 
     # Apply labels and bounds
-    plt.title("%s Cumulative Distribution Function (%d MB Heap)" % (benchmark, mem_size))
+    plt.title("%s Mean Iteration Runtime CDF (%d MB Heap)" % (benchmark, mem_size))
     plt.ylabel("Fraction of Jobs Completed")
     plt.xlabel("Time (ms)")
     plt.xlim(shortest_time*0.8, longest_time*1.1)
@@ -131,7 +131,7 @@ def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, outpu
     ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
 
   # Apply labels and bounds
-  plt.title("%s Runtime Slowdown with Increasing JVM Count" % benchmark)
+  plt.title("%s Mean Total Runtime Slowdown" % benchmark)
   plt.ylabel("Slowdown")
   plt.xlabel("Number of JVMs")
   plt.xlim(0, max(jvms)*1.1)
@@ -153,30 +153,32 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
   plt.clf()
   ax = plt.subplot(111)
 
-  GC_TYPE, GC_INDEX = "Major", 0
+  #GC_TYPE, GC_INDEX = "Major", 0
+  GC_TYPE = "All"
 
   # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
   keyed_by_mem_size = defaultdict(list)
   for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
     for memsize, avg_runtime in memsize_to_results.iteritems():
-      keyed_by_mem_size[memsize].append((jvm_count, avg_runtime[GC_INDEX]))
+      #keyed_by_mem_size[memsize].append((jvm_count, avg_runtime[GC_INDEX]))
+      keyed_by_mem_size[memsize].append((jvm_count, avg_runtime))
 
   max_slowdown = 0
   for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
     jvms = [t[0] for t in runtime_list]
     slowdowns = [float(runtime)/runtime_list[0][1] for runtime in [t[1] for t in runtime_list]]
-    max_slowdown = max(max_slowdown + slowdowns)
+    max_slowdown = max([max_slowdown] + slowdowns)
     ax.plot(jvms, slowdowns, '--d', label="%d MB" % mem_size)
 
   # Apply labels and bounds
-  plt.title("%s %s GC Runtime Slowdown with Increasing JVM Count" % (benchmark, GC_TYPE))
+  plt.title("%s %s GC Mean Total Runtime Slowdown" % (benchmark, GC_TYPE))
   plt.ylabel("Slowdown")
   plt.xlabel("Number of JVMs")
   plt.xlim(0, max(jvms)*1.1)
   plt.ylim(0, max_slowdown*1.1)
   plt.legend(loc='upper left')
 
-  save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
+  save_or_show_current(output_dir, 'gc', benchmark, output_extension)
 
 def plot_jit(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
   print "Parsing and plotting runtime results for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
@@ -208,7 +210,7 @@ def plot_jit(benchmark, benchmark_experiments, os_type, results_dir, output_dir,
     offset += bar_width
 
   # Apply labels
-  plt.title("%s Mean Runtime in Isolation (Parallel Warmup)" % benchmark)
+  plt.title("%s Mean Total Runtime in Isolation (Parallel Warmup)" % benchmark)
   plt.ylabel("Runtime (ms)")
   plt.xlabel("Maximum Allocated Heap Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
@@ -218,7 +220,7 @@ def plot_jit(benchmark, benchmark_experiments, os_type, results_dir, output_dir,
   # Put a legend to the right of the current axis
   ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-  save_or_show_current(output_dir, 'runtimes', benchmark, output_extension)
+  save_or_show_current(output_dir, 'jit', benchmark, output_extension)
 
 def plot_xenalyze(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
   runtime_results = parse_xenalyze(benchmark, benchmark_experiments, os_type)
@@ -250,7 +252,7 @@ def plot_xenalyze(benchmark, benchmark_experiments, os_type, results_dir, output
 
   plt.legend(loc='upper right')
 
-  save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
+  save_or_show_current(output_dir, 'xenalyze', benchmark, output_extension)
 
 def parse_runtime_results(benchmark, benchmark_experiments, os_type, aggregate=True, stddev=False):
   # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
@@ -320,9 +322,12 @@ def parse_gc(benchmark, benchmark_experiments, os_type):
       minor_gc_per_jvm_times = map(float, re.findall(r"\[GC.*, ([.\d]*) secs", contents))
       # We'll use the sum
       exp_times.append((np.sum(major_gc_per_jvm_times), np.sum(minor_gc_per_jvm_times)))
-    # To find standard deviation for each experiment, call "np.std(exp_times)" here
-    major_times, minor_times = zip(*exp_times)
-    jvms_to_results[num_jvms][mem_size] = (np.mean(major_times), np.mean(minor_times))
+    
+    #major_times, minor_times = zip(*exp_times)
+    #jvms_to_results[num_jvms][mem_size] = (np.mean(major_times), np.mean(minor_times))
+    
+    total_times = map(lambda (major, minor): major + minor, exp_times)
+    jvms_to_results[num_jvms][mem_size] = (np.mean(total_times))
 
   return jvms_to_results
 
@@ -350,8 +355,7 @@ def parse_jit(benchmark, benchmark_experiments, os_type):
       else:
         index_start = -5
       per_jvm_times = all_per_jvm_times[index_start:]
-      # We'll use the mean
-      exp_times.append(np.mean(per_jvm_times))
+      exp_times.append(np.sum(per_jvm_times))
     # To find standard deviation for each experiment, call "np.std(exp_times)" here
     jvms_to_results[num_jvms][mem_size] = (np.mean(exp_times), np.std(exp_times))
 
