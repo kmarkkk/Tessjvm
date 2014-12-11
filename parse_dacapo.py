@@ -10,21 +10,22 @@ from collections import defaultdict
 from scipy.stats import cumfreq
 
 DACAPO_DIR='dacapo'
-DACAPO_BENCHMARKS = ['avrora', 'h2', 'jython', 'luindex', 'lusearch', 'xalan']
+DACAPO_BENCHMARKS = ['avrora', 'jython', 'luindex', 'xalan']
 MEM_SIZES = {'avrora': [64, 128, 256],
              'h2': [],
              'jython': [64, 128, 256],
              'luindex': [64, 128, 256],
-             'lusearch': [64, 128, 256],
+             'lusearch': [],
              'xalan': [64, 128, 256]
             }
-JVM_COUNTS = {'avrora': [1, 2, 4, 8, 16, 32],
+JVM_COUNTS = {'avrora': [1, 2, 4, 8, 16],
               'h2': [],
               'jython': [1, 2, 4, 8, 16],
-              'luindex': [1, 2, 4, 8, 16, 24, 32],
-              'lusearch': [1, 2, 4, 8, 16, 32],
-              'xalan': [1, 2, 4, 8, 16, 24, 32]
+              'luindex': [1, 2, 4, 8, 16],
+              'lusearch': [],
+              'xalan': [1, 2, 4, 8, 16]
               }
+XENALYZE_FILE = "xenalyze_summary"
 with open('dacapo_convergences.json', 'r') as f:
   CONVERGENCES = json.load(f)
 
@@ -56,7 +57,7 @@ def plot_runtimes(benchmark, benchmark_experiments, os_type, results_dir, output
   # Apply labels and bounds
   plt.title("%s Mean Total Run Times (5 Iterations)" % benchmark)
   plt.ylabel("Runtime (ms)")
-  plt.xlabel("Memory Size")
+  plt.xlabel("Maximum Allocated Heap Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
   # Move legend to the right
   box = ax.get_position()
@@ -152,7 +153,7 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
   plt.clf()
   ax = plt.subplot(111)
 
-  GC_TYPE, GC_INDEX = "Minor", 1
+  GC_TYPE, GC_INDEX = "Major", 0
 
   # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
   keyed_by_mem_size = defaultdict(list)
@@ -174,6 +175,80 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
   plt.xlim(0, max(jvms)*1.1)
   plt.ylim(0, max_slowdown*1.1)
   plt.legend(loc='upper left')
+
+  save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
+
+def plot_jit(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
+  print "Parsing and plotting runtime results for %d %s experiments...\n" % (len(benchmark_experiments), benchmark)
+
+  runtime_results = parse_jit(benchmark, benchmark_experiments, os_type)
+
+  if len(runtime_results) == 0:
+    print "Not enough results found for %s. Skipping..." % benchmark
+    return
+
+  # Initialize values we'll need for the x-axis
+  memory_sizes = MEM_SIZES[benchmark]
+  xs = range(1,len(memory_sizes)+1)
+  # These offset the bar series from each other. Designed for 5 bar series.
+  bar_width, offset = 0.15, -0.075 # These offset the bar series from each other. Designed for 2 bar series.
+
+  # Colors for successive bar series
+  color_iter = color_iter = iter(['#8FE3FF', '#989898'])
+
+  plt.clf()
+  ax = plt.subplot(111)
+  # Add an extra entry to the x-axis so we can see all of the experiments
+  ax.set_xlim(0, len(memory_sizes)+1)
+
+  for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
+    print [memsize_to_results[memsize] for memsize in memory_sizes]
+    avg_runtimes, std_runtimes = zip(*[memsize_to_results[memsize] for memsize in memory_sizes])
+    ax.bar([x + offset for x in xs], avg_runtimes, yerr=std_runtimes, ecolor='k', capsize=5, width=bar_width, color=next(color_iter), align="center", label="%d JVMs" % jvm_count)
+    offset += bar_width
+
+  # Apply labels
+  plt.title("%s Mean Runtime in Isolation (Parallel Warmup)" % benchmark)
+  plt.ylabel("Runtime (ms)")
+  plt.xlabel("Maximum Allocated Heap Size")
+  plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
+  box = ax.get_position()
+  ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+
+  # Put a legend to the right of the current axis
+  ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+  save_or_show_current(output_dir, 'runtimes', benchmark, output_extension)
+
+def plot_xenalyze(benchmark, benchmark_experiments, os_type, results_dir, output_dir, output_extension):
+  runtime_results = parse_xenalyze(benchmark, benchmark_experiments, os_type)
+  if len(runtime_results) == 0:
+    print "Not enough results found for %s. Skipping..." % benchmark
+    return
+
+  plt.clf()
+  ax = plt.subplot(111)
+
+  keyed_by_mem_size = defaultdict(list)
+  for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
+    for memsize, fraction in memsize_to_results.iteritems():
+      keyed_by_mem_size[memsize].append((jvm_count, fraction))
+
+  max_fraction = 0
+  for mem_size, runtime_list in sorted(keyed_by_mem_size.iteritems(), key=lambda t: t[0]):
+    jvms = [t[0] for t in runtime_list]
+    fractions = [runtime for runtime in [t[1] for t in runtime_list]]
+    max_fraction = max([max_fraction] + fractions)
+    ax.plot(jvms, fractions, '--d', label="%d MB" % mem_size)
+
+  # Apply labels and bounds
+  plt.title("%s Fraction of CPU Time Spent in Concurrency Hazard" % benchmark)
+  plt.ylabel("Fraction CPU Time in Concurrency Hazard")
+  plt.xlabel("Number of JVMs")
+  plt.xlim(0, max(jvms)*1.1)
+  plt.ylim(0, max_fraction*1.1)
+
+  plt.legend(loc='upper right')
 
   save_or_show_current(output_dir, 'slowdowns', benchmark, output_extension)
 
@@ -251,6 +326,63 @@ def parse_gc(benchmark, benchmark_experiments, os_type):
 
   return jvms_to_results
 
+def parse_jit(benchmark, benchmark_experiments, os_type):
+  # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
+  jvms_to_results = defaultdict(lambda : defaultdict(int))
+  for exp in benchmark_experiments:
+    benchmark, num_jvms, mem_size = re.search("([a-zA-Z0-9]*)_(\d+)jvms_(\d+)MB$", exp).groups()
+    num_jvms, mem_size = int(num_jvms), int(mem_size)
+
+    exp_path = "/".join([results_dir, DACAPO_DIR, os_type, exp])
+
+    exp_times = []
+    for jvm in range(1, 6):
+      # Runtimes are logged in the stderr files on linux and stout files on xen
+      if os_type == "xen":
+        filename = "/".join([exp_path, "stdout%02d" % jvm])
+      else:
+        filename = "/".join([exp_path, "stderr%02d" % jvm])
+      with open(filename, 'r') as f:
+        contents = f.read()
+      all_per_jvm_times = map(int, re.findall("%s .* in (\d+) msec" % benchmark, contents))
+      if benchmark == 'luindex':
+        index_start = -4
+      else:
+        index_start = -5
+      per_jvm_times = all_per_jvm_times[index_start:]
+      # We'll use the mean
+      exp_times.append(np.mean(per_jvm_times))
+    # To find standard deviation for each experiment, call "np.std(exp_times)" here
+    jvms_to_results[num_jvms][mem_size] = (np.mean(exp_times), np.std(exp_times))
+
+  return jvms_to_results
+
+def parse_xenalyze(benchmark, benchmark_experiments, os_type):
+  # Returns dictionary of the form: {num_jvms -> {mem_size -> avg_runtime_ms}}
+  jvms_to_results = defaultdict(lambda : defaultdict(int))
+  for exp in benchmark_experiments:
+    benchmark, num_jvms, mem_size = re.search("([a-zA-Z0-9]*)_(\d+)jvms_(\d+)MB$", exp).groups()
+    num_jvms, mem_size = int(num_jvms), int(mem_size)
+
+    exp_path = "/".join([results_dir, DACAPO_DIR, os_type, exp])
+
+    with open(os.path.join(exp_path, XENALYZE_FILE), 'r') as f:
+      contents = f.read()
+      index_start = 1
+      index_end = index_start + num_jvms
+      domains = re.findall(r"Domain[\s\S]*?Grant table ops", contents)[index_start:index_end]
+
+    exp_times = []
+    for domain in domains:
+      domain_runstates = re.findall(r"([\w ]+):[\d ]* ([.\d]+)s", domain)
+      domain_runstates = dict(map(lambda (runstate, time): (runstate.strip(), float(time)), domain_runstates))
+      total_time = reduce(lambda accum,(runstate, time): accum + time, domain_runstates.iteritems(), 0)
+      exp_times.append((domain_runstates['concurrency_hazard']) / total_time)
+
+    jvms_to_results[num_jvms][mem_size] = np.mean(exp_times)
+
+  return jvms_to_results
+
 def save_or_show_current(output_dir, subdirectory, benchmark, output_extension, suffix=None):
   if output_dir:
     dest_dir = "%s/dacapo/%s" % (output_dir, subdirectory)
@@ -272,11 +404,6 @@ if __name__ == "__main__":
   parser.add_argument("-e", "--extension", action="store", default="eps", help="if -o is provided, this is the file type extension for the graph images")
   parser.add_argument("-b", "--benchmark", action="store", default=False, help="parse a specific benchmark")
   cmdargs = parser.parse_args()
-  
-  results_dir = cmdargs.resultsdir
-
-  experiments_dir = '/'.join([results_dir, DACAPO_DIR, cmdargs.xen])
-  all_experiments = os.listdir(experiments_dir)
 
   if cmdargs.type == 'runtime':
     plotter = plot_runtimes
@@ -285,9 +412,26 @@ if __name__ == "__main__":
   elif cmdargs.type == 'gc':
     plotter = plot_gc
   elif cmdargs.type == 'cdf':
-    plotter= plot_cdfs
+    plotter = plot_cdfs
+  elif cmdargs.type == 'jit':
+    DACAPO_DIR = "dacapo-jit"
+    JVM_COUNTS = {'avrora': [1, 16],
+              'h2': [],
+              'jython': [1, 16],
+              'luindex': [1,16],
+              'lusearch': [],
+              'xalan': [1, 16]
+              }
+    plotter = plot_jit
+  elif cmdargs.type == 'xenalyze':
+    plotter = plot_xenalyze
   else:
     raise ValueError("Unknown graph type")
+
+  results_dir = cmdargs.resultsdir
+
+  experiments_dir = '/'.join([results_dir, DACAPO_DIR, cmdargs.xen])
+  all_experiments = os.listdir(experiments_dir)
 
   if cmdargs.benchmark:
     benchmark_experiments = filter(lambda s: re.match("^%s_.*" % cmdargs.benchmark, s), all_experiments)
