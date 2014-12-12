@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import time
+import re
 from threading import Thread
 
 ALL_BENCHMARKS = ["avrora", "h2", "jython", "luindex", "lusearch", "xalan"]
@@ -199,7 +200,7 @@ def runDacapo(options):
                         for i in range(numjvms):
                             numIterations = 40
                             if options.gangscheduled:
-                                numIterations = 15
+                                numIterations = 20
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDetails', '-XX:+UseParallelOldGC',
                                                      '-jar', "/dacapo.jar", "-n", str(numIterations), benchmark])
                             cmd = dacapoXenRunCommand(options, i, numjvms)
@@ -239,11 +240,11 @@ def runDacapo(options):
                         # Now let them run again
                         if options.gangscheduled:
                             for proc, stdout, stderr, i in procsAndFiles:
-                                subprocess.call(["sudo", "xl", "cpupool-migrate", "osv-%s-%d" % (options.test, proc.pid)], 'GangSched-Pool')
+                                subprocess.call(["sudo", "xl", "cpupool-migrate", "osv-%s-%d" % (options.test, proc.pid), 'GangSched-Pool'])
                             domain1 = "osv-%s-%d" % (options.test, procsAndFiles[0][0].pid)
                             xl_list = subprocess.check_output(['sudo', 'xl', 'list'])
                             domain1_id = re.findall(r"%s\s*(\d*)" % domain1, xl_list)[0]
-                            subprocess.call(["./gsc", '-d', domain1_id])
+                            subprocess.call(["sudo", "./gsc", '-d', domain1_id, '-p', '1', '-c', '1', '-t', 'tt,200,100'])
                         else:
                             for proc, stdout, stderr, i in procsAndFiles:
                                 subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
@@ -262,6 +263,7 @@ def runDacapo(options):
                             subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
 
                     if options.xen and not options.gangscheduled:
+                        print "DESTROY"
                         threads = []
                         # Detect when all Xen domains have hit some iteration
                         for proc, stdout, stderr, i in procsAndFiles:
