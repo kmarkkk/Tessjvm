@@ -11,12 +11,12 @@ YCSB_DIR = 'cassandra_ycsb'
 RESULT_METRICS = ['ovr_runtime', 'ovr_thruput', 'r_latency', 'r_95_latency', 'r_99_latency', 'u_latency', 'u_95_latency', 'u_99_latency']
 RESULT_LABELS = {'ovr_runtime': ('Average Overall Runtime', 'Time (ms)'),
                  'ovr_thruput': ('Average Overall Throughput', 'Operations per second'),
-                 'r_95_latency': ('95th Percentile Read Latency', 'Latency(ms)'),
-                 'r_99_latency': ('99th Percentile Read Latency', 'Latency(ms)'),
+                 'r_95_latency': ('95th Percentile Read Latency', 'Latency (ms)'),
+                 'r_99_latency': ('99th Percentile Read Latency', 'Latency (ms)'),
                  'r_latency': ('Read Operation Latency', u'Latency (\u03bcs)'),
-                 'u_latency': ('Update Operation Latency', u'Latency \u03bcs)'),
-                 'u_95_latency': ('95th Percentile Update Latency', 'Latency(ms)'),
-                 'u_99_latency': ('99th Percentile Update Latency', 'Latency(ms)'),
+                 'u_latency': ('Update Operation Latency', u'Latency (\u03bcs)'),
+                 'u_95_latency': ('95th Percentile Update Latency', 'Latency (ms)'),
+                 'u_99_latency': ('99th Percentile Update Latency', 'Latency (ms)'),
                  }
 
 YCSB_Result = namedtuple('YCSB_Result', RESULT_METRICS)
@@ -88,9 +88,9 @@ def plot_gc(experiments, os_type):
   minor = map(lambda x: x[1], runtime_results.values())
   plt.plot(JVM_COUNTS, major, '-d')
   plt.plot(JVM_COUNTS, minor, '-d')
-  plt.legend(['Major GC', 'Minor GC'], loc='upper left')
-  plt.title('Cassandra GC(Concurrent Mark Sweep) time plot')
-  plt.ylabel('Total GC time')
+  plt.legend(['Major GC', 'Minor GC'], loc='upper right')
+  plt.title('Cassandra Total GC Times')
+  plt.ylabel('Total Time in GC (s)')
   plt.xlabel("Number of JVMs")
   plt.xlim(0, max(JVM_COUNTS)+1)
   plt.ylim(0, max(major + minor)*1.1)
