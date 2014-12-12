@@ -197,8 +197,11 @@ def runDacapo(options):
                         # Make the image copies
                         makeOSvImageCopies(options, options.numjvms)
                         for i in range(numjvms):
+                            numIterations = 40
+                            if options.gangscheduled:
+                                numIterations = 15
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDetails', '-XX:+UseParallelOldGC',
-                                                     '-jar', "/dacapo.jar", "-n", '40', benchmark])
+                                                     '-jar', "/dacapo.jar", "-n", str(numIterations), benchmark])
                             cmd = dacapoXenRunCommand(options, i, numjvms)
                             cmd += ['-e', dacapo_cmd, '--set-image-only']
                             printVerbose(options, " ".join(cmd))
@@ -224,7 +227,7 @@ def runDacapo(options):
                             proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
                         procsAndFiles.append((proc, stdout, stderr, i))
 
-                    if options.xen and options.pausefirst:
+                    if options.xen and (options.pausefirst or options.gangscheduled):
                         threads = []
                         # Wait for all Xen domains start up first before running them
                         for proc, stdout, stderr, i in procsAndFiles:
@@ -234,8 +237,16 @@ def runDacapo(options):
                         for thread in threads:
                             thread.join()
                         # Now let them run again
-                        for proc, stdout, stderr, i in procsAndFiles:
-                            subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
+                        if options.gangscheduled:
+                            for proc, stdout, stderr, i in procsAndFiles:
+                                subprocess.call(["sudo", "xl", "cpupool-migrate", "osv-%s-%d" % (options.test, proc.pid)], 'GangSched-Pool')
+                            domain1 = "osv-%s-%d" % (options.test, procsAndFiles[0][0].pid)
+                            xl_list = subprocess.check_output(['sudo', 'xl', 'list'])
+                            domain1_id = re.findall(r"%s\s*(\d*)" % domain1, xl_list)[0]
+                            subprocess.call(["./gsc", '-d', domain1_id])
+                        else:
+                            for proc, stdout, stderr, i in procsAndFiles:
+                                subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
 
                     if options.xen and options.pauseafterwarmup:
                         threads = []
@@ -250,7 +261,7 @@ def runDacapo(options):
                         for proc, stdout, stderr, i in procsAndFiles:
                             subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
 
-                    if options.xen:
+                    if options.xen and not options.gangscheduled:
                         threads = []
                         # Detect when all Xen domains have hit some iteration
                         for proc, stdout, stderr, i in procsAndFiles:
