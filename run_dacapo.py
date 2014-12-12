@@ -200,7 +200,7 @@ def runDacapo(options):
                         for i in range(numjvms):
                             numIterations = 40
                             if options.gangscheduled:
-                                numIterations = 20
+                                numIterations = numBenchmarkIterations + 5
                             dacapo_cmd = " ".join(['/java.so', '-Xmx%dM' % heapsize, '-XX:+PrintGCTimeStamps', '-XX:+PrintGCDetails', '-XX:+UseParallelOldGC',
                                                      '-jar', "/dacapo.jar", "-n", str(numIterations), benchmark])
                             cmd = dacapoXenRunCommand(options, i, numjvms)
