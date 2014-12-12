@@ -10,10 +10,10 @@ import atexit
 import run_cassandra_cluster
 import re
 import time
-from threading import ThreadPriorityPolicy
+from threading import Thread
 from subprocess import Popen, PIPE
 
-YCSB_ITER = 5
+YCSB_ITER = 6
 HEAP_RATIO = 0.9
 YOUNG_RATIO = 0.7
 OSV_IMAGE_DIR = "osv_images"
@@ -25,7 +25,7 @@ cassandraMacStart = 69
 cassandraXenCmdline = "--ip=eth0,172.16.2.%d,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -javaagent:/usr/cassandra/lib/jamm-0.2.6.jar -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+CMSClassUnloadingEnabled -XX:+UseThreadPriorities -XX:ThreadPriorityPolicy=42 -Xms%dM -Xmx%dM -Xmn%dM -XX:+HeapDumpOnOutOfMemoryError -Xss256k -XX:StringTableSize=1000003 -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:SurvivorRatio=8 -XX:MaxTenuringThreshold=1 -XX:CMSInitiatingOccupancyFraction=75 -XX:+UseCMSInitiatingOccupancyOnly -XX:+UseTLAB -XX:+UseCondCardMark -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=7199 -Dcom.sun.management.jmxremote.rmi.port=7199 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlogback.configurationFile=logback.xml -Dcassandra.logdir=/usr/cassandra/logs -Dcassandra.storagedir=/usr/cassandra/data -Dcassandra-foreground=yes -classpath /usr/cassandra/conf/:/usr/cassandra/lib/* org.apache.cassandra.service.CassandraDaemon"
 ycsbIpStart = 30
 ycsbMacStart = 80
-ycsbXenCmdline = '--execute=--ip=eth0,172.16.2.%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloada %s -p "host=%s" -p port=9042 -p threadcount=2 -p operationcount=10000'
+ycsbXenCmdline = '--ip=eth0,172.16.2.%s,255.255.255.0  --defaultgw=172.16.2.1 --nameserver=10.0.0.1 /java.so -cp /usr/YCSB/jdbc/src/main/conf:/usr/YCSB/cassandra/target/cassandra-binding-0.1.4.jar:/usr/YCSB/cassandra/target/archive-tmp/cassandra-binding-0.1.4.jar:/usr/YCSB/gemfire/src/main/conf:/usr/YCSB/core/target/core-0.1.4.jar:/usr/YCSB/nosqldb/src/main/conf:/usr/YCSB/hbase/src/main/conf:/usr/YCSB/dynamodb/conf:/usr/YCSB/infinispan/src/main/conf:/usr/YCSB/voldemort/src/main/conf com.yahoo.ycsb.Client -db com.yahoo.ycsb.db.CassandraCQLClient -P /usr/YCSB/workloads/workloadf %s -p "host=%s" -p port=9042 -p threadcount=2 -p operationcount=100000 -p recordcount=5000'
 
 
 def clearCassandraInstances():
@@ -36,8 +36,9 @@ def clearCassandraInstances():
     space = re.compile(" +")
     for instance in instances[1:]:
         name = space.split(instance)[0]
-        if name and 'cassandra' in name:
-            subprocess.check_call(['sudo', 'xl', 'destroy', name])
+        if name:
+            if 'ycsb' in name or 'cassandra' in name:
+                subprocess.check_call(['sudo', 'xl', 'destroy', name])
 
 def printVerbose(options, statement):
     if options.verbose:
@@ -66,12 +67,20 @@ def cleanUp(options, procsAndFiles):
     if options.xen:
         shutil.rmtree(OSV_IMAGE_DIR)
 
+def makeOSvCassandraCopies(options, numCopies):
+    mkdir(OSV_IMAGE_DIR)
+    basename = os.path.basename(options.cassandra_image)
+    for i in range(numCopies):
+        image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
+        subprocess.call(['cp', options.cassandra_image, image_path])
+
+
 def makeOSvYcsbCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
     basename = os.path.basename(options.ycsb_image)
     for i in range(numCopies):
         image_path =  "%s_%d" % (os.path.join(OSV_IMAGE_DIR, basename), i + 1)
-        subprocess.call(['cp', options.image, image_path])
+        subprocess.call(['cp', options.ycsb_image, image_path])
 
 def makeOSvImageCopies(options, numCopies):
     mkdir(OSV_IMAGE_DIR)
@@ -114,9 +123,8 @@ def cassandraXenRunCommand(options, i):
     return cmd
 
 def ycsbXenRunCommand(options, i, ycsbMem):
-    ycsbCmd = ycsbXenCmdline % (YCSB_IP, phrase, hosts)
-    ycsbCmd += ' ' + options.ycsb_cmd
-    cmd = ["./scripts/run.py", "-t", "ycsb", "-i", options.ycsb_image, "-c", options.vcpus, 
+    image_path = os.path.join(OSV_IMAGE_DIR, "ycsb.qemu_%d" % (i + 1))
+    cmd = ["./scripts/run.py", "-t", "ycsb", "-i", image_path, "-c", options.vcpus, 
     "-p", "xen", "-m", str(ycsbMem), "-a", options.cpus, "--cpupool", options.cpupool, 
     "-n", "--bridge", "xenbr1", "--mac", macAddr % (ycsbMacStart + i)]
     if options.losetup:
@@ -170,7 +178,7 @@ def runCassandra(options):
             raise Exception("Invalid workload file %s" % options.workload)
 
     if options.xen:
-        makeOSvImageCopies(options, options.numjvms)
+        makeOSvCassandraCopies(options, options.numjvms)
         makeOSvYcsbCopies(options, options.numjvms)
         print '>Done makign image copies...'
         options.heap = (int)(options.memsize * HEAP_RATIO)
@@ -205,6 +213,7 @@ def runCassandra(options):
 
     # Run Benchmarks under various numbers of JVMS and Heap Sizes
     numjvms = options.startjvm
+    procAndFiles = []
     while numjvms <= options.numjvms:
         printVerbose(options, "Num JVMs: %d" % numjvms)
         try:
@@ -248,32 +257,27 @@ def runCassandra(options):
                     initCql(options, node)
                 print '>Done init all cqls'
                 for t in xrange(numjvms):
-                    ycsbXenCmdline = ycsbXenCmdline % (ycsbIpStart + t, nodes[t], '-load')
+                    ycsbCmdline = ycsbXenCmdline % (ycsbIpStart + t, '-load', nodes[t])
                     cmd = ycsbXenRunCommand(options, t, 512)
-                    cmd += ['--execute=' + ycsbXenCmdline]
+                    cmd += ['--execute=' + ycsbCmdline]
                     cmd += ['--set-image-only']
+                    print cmd
                     subprocess.check_call(cmd)
                 print '>Done set ycsb image load command arg'
                 procsAndFiles = []
                 for t in xrange(numjvms):
                     cmd = ycsbXenRunCommand(options, t, 512)
+                    print cmd
                     ycsbLoadOut = open(os.path.join(outputdir, 'ycsbloadstdout%02d' % (t + 1)), 'a')
                     ycsbLoadErr = open(os.path.join(outputdir, 'ycsbloadstderr%02d' % (t + 1)), 'a')
                     proc = subprocess.Popen(cmd, stdout=ycsbLoadOut, stderr=ycsbLoadErr)
-                    procsAndFiles.append((proc, stdout, stderr, t))
+                    procsAndFiles.append((proc, ycsbLoadOut, ycsbLoadErr, t))
                 waitForProcs(procsAndFiles)
                 print '>Done loading phrases'
                 for t in xrange(numjvms):
-                    ycsbXenCmdline = ycsbXenCmdline % (ycsbIpStart + t, nodes[t], '-load')
+                    ycsbCmdline = ycsbXenCmdline % (ycsbIpStart + t, '-t', nodes[t])
                     cmd = ycsbXenRunCommand(options, t, 512)
-                    cmd += ['--execute=' + ycsbXenCmdline]
-                    cmd += ['--set-image-only']
-                    subprocess.check_call(cmd)
-                print '>Done set ycsb image load command arg'
-                for t in xrange(numjvms):
-                    ycsbXenCmdline = ycsbXenCmdline % (ycsbIpStart + t, nodes[t], '-t')
-                    cmd = ycsbXenRunCommand(options, t, 512)
-                    cmd += ['--execute=' + ycsbXenCmdline]
+                    cmd += ['--execute=' + ycsbCmdline]
                     cmd += ['--set-image-only']
                     subprocess.check_call(cmd)
                 print '>Done set ycsb image run command arg'
@@ -332,10 +336,7 @@ def runCassandra(options):
             raise e
         if options.xen:
             clearCassandraInstances()
-        if numjvms == 1:
-          numjvms = 2
-        else:
-          numjvms += 2
+        numjvms += 1
         time.sleep(10)
     cleanUp(options, procsAndFiles)
 
@@ -343,13 +344,14 @@ def runRunPhrase(cmd, t, iteratiions, outputdir):
     for i in xrange(iteratiions):
         ycsbRunOut = open(os.path.join(outputdir, 'ycsbrunstdout%02d%02d' % (t + 1, i + 1)), 'a')
         ycsbRunErr = open(os.path.join(outputdir, 'ycsbrunstderr%02d%02d' % (t + 1, i + 1)), 'a')
-        subprocess.check_call(cmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
+        p = subprocess.Popen(cmd, stdout=ycsbRunOut, stderr=ycsbRunErr)
+        p.wait()
         ycsbRunOut.close()
         ycsbRunErr.close()
 
 def waitForProcs(procsAndFiles):
     while procsAndFiles:
-        proc, stdout, stderr = procsAndFiles.pop()
+        proc, stdout, stderr, t = procsAndFiles.pop()
         proc.wait()
         stdout.close()
         stderr.close()
