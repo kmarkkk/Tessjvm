@@ -38,7 +38,7 @@ def plot(plot_type, experiments, os_type, results_dir, output_dir, output_extens
   plt.plot(JVM_COUNTS, metric_values, '-d')
   plt.title(RESULT_LABELS[plot_type][0])
   plt.ylabel(RESULT_LABELS[plot_type][1])
-  plt.xlabel("Number of JVMs")
+  plt.xlabel("Number of Cassandra instances")
   plt.xlim(0, max(JVM_COUNTS)+1)
   plt.ylim(0, max(metric_values)*1.1)
 
@@ -103,15 +103,12 @@ def plot_gc(experiments, os_type):
   plt.clf()
   major =  map(lambda x: x[0], runtime_results.values())
   minor = map(lambda x: x[1], runtime_results.values())
-  major[2] = major[2] * 1.5
-  minor[2] = minor[2] * 1.5
-  print major
   plt.plot(JVM_COUNTS, major, '-d')
   plt.plot(JVM_COUNTS, minor, '-d')
   plt.legend(['Major GC', 'Minor GC'], loc='upper right')
   plt.title('Cassandra Total GC Times')
   plt.ylabel('Total Time in GC (s)')
-  plt.xlabel("Number of JVMs")
+  plt.xlabel("Number of Cassandra instances")
   plt.xlim(0, max(JVM_COUNTS)+1)
   plt.ylim(0, max(major + minor)*1.1)
   plt.show()
