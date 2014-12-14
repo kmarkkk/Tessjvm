@@ -138,7 +138,7 @@ The DaCapo Benchmark suite is a diverse set of open source, real world applicati
 
 The benchmark harness supports multiple workload sizes, user-specified number of iterations to run a benchmark for, and the reporting of a performance stable iteration.
 
-We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset of this suite is used for our experiments (avrora, jython, luindex, xalan). The subset was chosen based off which benchmarks ran without errors within our guest OS, OS$^{v}$ \cite{aviOSv2014}. The characteristics of these 4 benchmarks are described below.
+We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset of this suite is used for our experiments (avrora, jython, luindex, xalan). The subset was chosen based off which benchmarks ran without errors within our guest OS, OS$^{v}$ \cite{aviOSv2014}. The characteristics of these 4 benchmarks are described below. 
 \\\\
 \textbf{Avrora:} Avrora is a multithreaded application which simulates programs being run on a grid of AVR microcontrollers. Each microcontroller is simulated by a single thread. Avrora exhibits high fine-grained synchronization between simulator threads.
 \\\\
@@ -166,12 +166,44 @@ We run three experiments using DaCapo and Xen's default credit scheduler for CPU
 For each benchmark in our subset, we run 1, 2, 4, 8, and 16 JVMs in parallel with maximum heap sizes of 64MB, 128MB, and 256MB. We warm up our JVMs by running the benchmark for some number of iterations. The number of warm up iterations is empirically determined by calculating the average number of iterations needed until performance stabilizes for that benchmark. We continue to run the benchmark until all JVMs complete at least 5 more iterations after warm up.  The execution times of these 5 iterations are recorded. We also recorded the percentage of CPU time each domain spends in the \textit{concurrency hazard} runstate using the xentrace and xenalyze tools. Concurrency hazard is the domain state where some vCPUs are running while the other vCPUs are waiting to be scheduled to run. 
 
 \subsubsection{Parallel Garbage Collector Performance}
-In the same setup in Experiment 1, we run the parallel JVMs with the \textit{-XX:-UseParallelOldGC} flag turned on. This specifies that a parallel garbage collector be used for both the young and old generations. We record the GC pause times for both minor and major(Full) collections that occur during the execution of the next 5 iterations after warm up.
+In the same setup in Experiment 1, we run the parallel JVMs with the \textit{-XX:-UseParallelOldGC} flag turned on. This specifies that a parallel garbage collector be used for both the young and old generations. We record the GC pause times for both minor and major(full) collections that occur during the execution of the next 5 iterations after warm up.
 
 \subsubsection{Advanced Optimizer Performance}
 First, for each benchmark, we run a single JVM in isolation with maximum heap sizes of 64MB, 128MB, and 256MB. Similarly to Experiment 1, we record the execution times of the next 5 iterations after warm up. Next, we warm up a single JVM with the same heap sizes, while the machine is under the load of 15 other JVMs running the same benchmark. After warm up, we kill the other JVMs and run the single JVM in isolation; again recording the execution times of the next 5 iterations. We repeat these steps for each combination of benchmark and heap size 5 times recording 5 data points per combination.
 
 \subsection{Results}
+In the interest of space, we only showcase results for two of our benchmarks, avrora and xalan. The other two benchmarks exhibit similar behavior that are more pronounced in avrora and xalan.
+
+\subsubsection{Overall Performance}
+
+\begin{figure*}
+\centering
+\epsfig{file=figures/slowdowns/avrora.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cdfs/avrora_128MB.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/xenalyze/avrora.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/slowdowns/xalan.eps, height=1.5in, width=2.25in}
+\epsfig{file=figures/cdfs/xalan_128MB.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/xenalyze/xalan.eps,  height=1.5in, width=2.25in}
+\caption{Runtime slowdown relative to 1 JVM, CDF of iteration runtimes, and fraction of CPU time spent in \textit{concurrency hazard} respectively.}
+\end{figure*}
+
+\subsubsection{Parallel Garbage Collector Performance}
+
+\begin{figure*}
+\centering
+\epsfig{file=figures/gc/avrora.eps, height=2.3in, width=3.45in}
+\epsfig{file=figures/gc/xalan.eps, height=2.3in, width=3.45in}
+\caption{GC runtime slowdown relative to 1 JVM.}
+\end{figure*}
+
+\subsubsection{Advanced Optimizer Performance}
+
+\begin{figure*}
+\centering
+\epsfig{file=figures/jit/avrora.eps, height=2.3in, width=3.45in}
+\epsfig{file=figures/jit/xalan.eps, height=2.3in, width=3.45in}
+\caption{Mean total runtime of JVMs warmed up in isolation and with 16 running JVMs in parallel.}
+\end{figure*}
 
 %Because tables cannot be split across pages, the best
 %placement for them is typically the top of the page
@@ -190,14 +222,6 @@ First, for each benchmark, we run a single JVM in isolation with maximum heap si
 %placement of the table here with the table in the printed
 %dvi output of this document.
 %
-\begin{table}
-\centering
-\caption{Standard Deviations of Dacapo Benchmarks}
-\begin{tabular}{|c|c|l|} \hline
-Benchmark&Standard Deviation&Variance\\ \hline
-avrora &1000&100\\
-\hline\end{tabular}
-\end{table}
 
 %To set a wider table, which takes up the whole width of
 %the page's live area, use the environment
@@ -240,13 +264,6 @@ avrora &1000&100\\
 %and \textbf{.ps} files to be displayable with \LaTeX.  More
 %details on each of these is found in the \textit{Author's Guide}.
 
-\begin{figure}
-\centering
-\epsfig{file=figures/avrora.eps, height=2in, width=3in}
-\caption{A sample graphic (.eps format)
-that has been resized with the \texttt{epsfig} command.}
-\end{figure}
-
 %As was the case with tables, you may want a figure
 %that spans two columns.  To do this, and still to
 %ensure proper ``floating'' placement of tables, use the environment
@@ -254,20 +271,13 @@ that has been resized with the \texttt{epsfig} command.}
 %and don't forget to end the environment with
 %{figure*}, not {figure}!
 
-\begin{figure*}
-\centering
-\epsfig{file=figures/luindex.eps}
-\caption{A sample black and white graphic (.eps format)
-that needs to span two columns of text.}
-\end{figure*}
-
 \section{Gang Scheduling}
 A custom Xen hypervisor (Xen4Tess) featuring a prototype implementation of a gang-scheduled CPU Pool was used for our gang-scheduling experiments. The gang scheduler runs vCPUs of Xen domains one after another with a fixed 50ms scheduling quantum. Unfortunately, we were unable to install a stable version of Xen4Tess on our test machine. Furthermore, limitations in domains shutting down or doing anything other than running at full-boar prevented us from running our full experimental suite for both credit and gang scheduling in time. Before running an experiment with a new combination of benchmark and heap size, old running VMs are shutdown causing the whole machine to hang.
 
 Nevertheless, we were able to get a similar setup to Figure~\ref{fig:dacaposetup} up and running on one our workstations to run small experiments on. In this setup a Xen4Tess hypervisor runs on a single-socket machine with an Intel Core i5-3570k processor at 3.4GHz (4 cores per socket, Hyperthreading off,  4 total CPUs) and 16GB of physical memory. Each Xen guest domain runs with 3 vCPUs and is allocated 512MB of memory. We run Xen domains within a 3-CPU Gang Scheduled Pool while reserving 1 CPU and 7GB of memory for Domain-0.
 
 \subsection{Dacapo}
-Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination.
+Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination. However, we were unable to use xentrace and xenalyze to observe runstates for gang scheduled domains because unexpected runstate transitions would occur due to the gang scheduler.
 
 \section{Future Work}
 
@@ -286,6 +296,15 @@ Figure out what kind of workload it would take in order for interference to beco
 Martin
 Nathan
 Eric
+
+\begin{table}
+\centering
+\caption{Standard Deviations of Dacapo Benchmarks}
+\begin{tabular}{|c|c|l|} \hline
+Benchmark&Standard Deviation&Variance\\ \hline
+avrora &1000&100\\
+\hline\end{tabular}
+\end{table}
 
 % The following two commands are all you need in the
 % initial runs of your .tex file to
