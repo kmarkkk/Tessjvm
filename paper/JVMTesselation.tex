@@ -129,7 +129,20 @@ Mostly hot spot detection and benefits it allows \cite{website:fermentas-lambda}
 
 The Tesselation manycore operating system is an architecture based on ARCC \cite{WinNT}
 
-\section{Dacapo}
+\section{Dacapo with Xen}
+The DaCapo Benchmark suite is a diverse set of open source, real world applications as opposed to a set of synthetic benchmarks \cite{blackburn2006dacapo}. The applications in the suite were chosen to maximize coverage of the types of applications run in the wild and to be relatively easy to use and measure. These applications are also well known to put considerable pressure on the JVM garbage collector and improve significantly from JVM warm up. 
+
+The benchmark harness supports multiple workload sizes, user-specified number of iterations to run a benchmark for, and the reporting of a performance stable iteration.
+
+We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset of this suite is used for our experiments (avrora, jython, luindex, xalan). The subset was chosen based off which benchmarks ran without errors within our guest OS, OS$^{v}$ \cite{aviOSv2014}. The characteristics of these 4 benchmarks are described below.
+\\\\
+\textbf{Avrora:} Avrora is a multithreaded application which simulates programs being run on a grid of AVR microcontrollers. Each microcontroller is simulated by a single thread. Avrora exhibits high fine-grained synchronization between simulator threads.
+\\\\
+\textbf{Jython:} Jython is a python interpreter written in Java which runs the \textit{pybench} benchmark. The bulk of the tests in \textit{pybench} are single-threaded. For those few tests that are multi-threaded, a thread is created for each available CPU. 
+\\\\
+\textbf{Luindex:} Luindex is a text indexing tool that indexes the works of Shakespeare and the King James Bible. Although some helper threads are forked internally, luindex is primarily driven by a single thread.
+\\\\
+\textbf{Xalan:} Xalan transformed a XML document featuring the works of Shakespeare into HTML. Xalan is multithreaded, creating a thread for each available CPU. Threads process elements off a work queue in parallel.
 
 %TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
 
@@ -143,25 +156,16 @@ The Tesselation manycore operating system is an architecture based on ARCC \cite
 
 Figure~\ref{fig:dacaposetup} showcases our experimental setup. Our setup uses the OpenJDK7 implementation of the Java platform. We deploy our JVMs in Virtual Machines running the OS$^{v}$ 0.13 Operating System \cite{aviOSv2014}. OS$^{v}$ VMs are run as guest domains on the Xen 4.4 hypervisor \cite{barham2003xen}. The hypervisor runs on a 2-socket machine with 2 Intel Core i7-920 processors at 2.67GHz (4 cores per socket, Hyperthreading off,  8 total CPUs).  Our test machine has 12GB of physical memory and runs Ubuntu 14.04.01. Each Xen guest domain runs with 6 vCPUs and is allocated 512MB of memory. We run Xen domains within a 6-CPU Pool while reserving 2 CPUs and 3GB of memory for Domain-0.  
 
-Only a subset of the DaCapo benchmark suite is used for our experiments (avrora, jython, luindex, xalan). The subset was chosen based off which benchmarks ran without errors within OS$^{v}$. For all experiments, the same benchmark is run across all JVMs that run concurrently.
+We run three experiments using DaCapo and Xen's default credit scheduler for CPU resources. First, we measure the overall performance of running JVM's in parallel. Second, we measure the pause times of a \textit{stop-the-world} parallel garbage collector. Third, we explore the performance of HotSpot's advanced optimizer during warm up phase while running along side multiple JVMs. For all experiments, the same benchmark is run across all JVMs that run concurrently using the default workload size.
 
-We run three experiments using DaCapo and Xen's default credit scheduler for CPU resources. First, we measure the overall performance of running JVM's in parallel. Second, we measure the pause times of a \textit{stop-the-world} parallel garbage collector. Third, we explore the performance of HotSpot's advanced optimizer during warmup phase while running along side multiple JVMs. We also reran the first experiment measuring overall performance using an experiment gang scheduler for CPU resources instead.
-
-\subsubsection{Overall Performance}
-For each benchmark in our subset, we run 1, 2, 4, 8, and 16 JVMs in parallel with maximum heap sizes of 64MB, 128MB, and 256MB. We warmup our JVMs by running the benchmark for some number of iterations. The number of warmup iterations is empirically determined by calculating the average number of iterations needed until performance stabilizes for that benchmark. We continue to run the benchmark until all JVMs complete at least 5 more iterations after warmup.  The execution times of these 5 iterations are recorded. We also recorded the percentage of CPU time each domain spends in the \textit{concurrency hazard} runstate using the xentrace and xenalyze tools. Concurrency hazard is the domain state where some vCPUs are running while the other vCPUs are waiting to be scheduled to run. 
+\subsubsection{Overall Performance} \label{sssec:overallperf}
+For each benchmark in our subset, we run 1, 2, 4, 8, and 16 JVMs in parallel with maximum heap sizes of 64MB, 128MB, and 256MB. We warm up our JVMs by running the benchmark for some number of iterations. The number of warm up iterations is empirically determined by calculating the average number of iterations needed until performance stabilizes for that benchmark. We continue to run the benchmark until all JVMs complete at least 5 more iterations after warm up.  The execution times of these 5 iterations are recorded. We also recorded the percentage of CPU time each domain spends in the \textit{concurrency hazard} runstate using the xentrace and xenalyze tools. Concurrency hazard is the domain state where some vCPUs are running while the other vCPUs are waiting to be scheduled to run. 
 
 \subsubsection{Parallel Garbage Collector Performance}
-In the same setup in Experiment 1, we run the parallel JVMs with the \textit{-XX:-UseParallelOldGC} flag turned on. This specifies that a parallel garbage collector be used for both the young and old generations. We record the GC pause times for both minor and major(Full) collections that occur during the execution of the next 5 iterations after warmup.
+In the same setup in Experiment 1, we run the parallel JVMs with the \textit{-XX:-UseParallelOldGC} flag turned on. This specifies that a parallel garbage collector be used for both the young and old generations. We record the GC pause times for both minor and major(Full) collections that occur during the execution of the next 5 iterations after warm up.
 
 \subsubsection{Advanced Optimizer Performance}
-First, for each benchmark, we run a single JVM in isolation with maximum heap sizes of 64MB, 128MB, and 256MB. Similarly to Experiment 1, we record the execution times of the next 5 iterations after warmup. Next we warm up a single JVM with the same heap sizes while the machine is under the load of 15 other JVMs running the same benchmark. After warmup, we kill the other JVMs and run the single JVM in isolation; again recording the execution times of the next 5 iterations. We repeat these steps for each combination of benchmark and heap size 5 times recording 5 data points per combination.
-
-\subsubsection{Overall Performance w/ Gang Scheduling}
-A custom Xen hypervisor (Xen4Tess) featuring a prototype implementation of a gang-scheduled CPU Pool was used for our gang-scheduling experiments. The gang scheduler runs vCPUs of Xen domains one after another with a fixed 50ms scheduling quantum. Unfortunately, we were unable to install a stable version of Xen4Tess on our test machine. Furthermore, limitations in domains shutting down or doing anything other than running at full-boar prevented us from running our full experimental suite for both credit and gang scheduling in time. Before running an experiment with a new combination of benchmark and heap size, old running VMs are shutdown which cause the whole machine to hang.
-
-Nevertheless, we were able to get a similar setup to Figure~\ref{fig:dacaposetup} up and running on one our our workstations to run small experiments on. In this setup a Xen4Tess hypervisor runs on a single-socket machine with a Intel Core i5-3570k processor at 3.4GHz (4 cores per socket, Hyperthreading off,  4 total CPUs) and 16GB of physical memory. Each Xen guest domain runs with 3 vCPUs and is allocated 512MB of memory. We run Xen domains within a 3-CPU Gang Scheduled Pool while reserving 1 CPU and 7GB of memory for Domain-0.
-
-Using gang scheduling, we performed experiment 1 for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination.
+First, for each benchmark, we run a single JVM in isolation with maximum heap sizes of 64MB, 128MB, and 256MB. Similarly to Experiment 1, we record the execution times of the next 5 iterations after warm up. Next, we warm up a single JVM with the same heap sizes, while the machine is under the load of 15 other JVMs running the same benchmark. After warm up, we kill the other JVMs and run the single JVM in isolation; again recording the execution times of the next 5 iterations. We repeat these steps for each combination of benchmark and heap size 5 times recording 5 data points per combination.
 
 \subsection{Results}
 
@@ -214,7 +218,7 @@ avrora &1000&100\\
 %\end{table*}
 %% end the environment with {table*}, NOTE not {table}!
 
-\section{YCSB}
+\section{YCSB with Xen}
 
 %TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
 
@@ -252,6 +256,14 @@ that has been resized with the \texttt{epsfig} command.}
 \caption{A sample black and white graphic (.eps format)
 that needs to span two columns of text.}
 \end{figure*}
+
+\section{Gang Scheduling}
+A custom Xen hypervisor (Xen4Tess) featuring a prototype implementation of a gang-scheduled CPU Pool was used for our gang-scheduling experiments. The gang scheduler runs vCPUs of Xen domains one after another with a fixed 50ms scheduling quantum. Unfortunately, we were unable to install a stable version of Xen4Tess on our test machine. Furthermore, limitations in domains shutting down or doing anything other than running at full-boar prevented us from running our full experimental suite for both credit and gang scheduling in time. Before running an experiment with a new combination of benchmark and heap size, old running VMs are shutdown causing the whole machine to hang.
+
+Nevertheless, we were able to get a similar setup to Figure~\ref{fig:dacaposetup} up and running on one our workstations to run small experiments on. In this setup a Xen4Tess hypervisor runs on a single-socket machine with an Intel Core i5-3570k processor at 3.4GHz (4 cores per socket, Hyperthreading off,  4 total CPUs) and 16GB of physical memory. Each Xen guest domain runs with 3 vCPUs and is allocated 512MB of memory. We run Xen domains within a 3-CPU Gang Scheduled Pool while reserving 1 CPU and 7GB of memory for Domain-0.
+
+\subsection{Dacapo}
+Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination.
 
 \section{Future Work}
 
