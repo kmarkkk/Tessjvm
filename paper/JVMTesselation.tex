@@ -277,7 +277,7 @@ Same as the DaCapo setup in ~\ref{expsetup}, we run both Cassandra and YCSB as O
 \subsubsection{Overall Performance}
 Due to the memory limit, we only with 1,2,4 cassandra instances, which involve 2,4,8 JVMs. We set the request count to 100,000 and run two kinds of workloads. The first one is update heavy, which consists of 50\% read and 50\% update. Typical application for this kind of workload is session store which records recent actions. The second workload involves a large portion of read-modify-write. Related applications include user database, where user records are read and modified by the user or to record user activity. This one has 50\% read and 50\% read-modify-write. Both workloads use zipfian distribution when picking record to update. This long-tail , where an item's frequncy is inversely propotiaonal to its rank, simulates the real world fact a few records will be extremely popular while most records will be unpopular \cite{adamic2002zipf}. The data size is set to 1K, so each field gets 100 bytes. For each benchmark, we first run a load phrase to populate the database, then run one iteration of run phrase to get Cassandra warm up. After that, we run 5 iterations of run phrase and record the overall as well as operation-level lantency and throughput. The final value is the average of those numbers across multiple JVMs during 5 iterations.
 
-\subsubsection{Concurrent-Mark-Sweep Collector Performance}
+\subsubsection{Concurrent-Mark-Sweep Performance}
 In the same setup, we run the JVMs with flags \textit{-XX:+UseParNewGC} and \textit{-XX:+UseConcMarkSweepGC} to turn on the \textit{CMS} collector. We record the GC time for both minor and major(mark and sweep) collections that occur during the execution of the 5 iterations of run phrase after warm up.
 
 \begin{figure*}
@@ -300,7 +300,13 @@ In the same setup, we run the JVMs with flags \textit{-XX:+UseParNewGC} and \tex
 \subsection{Results}
 
 \subsubsection{Overall Performance}
-AA
+%No resouce saturation
+
+\subsubsection{Concurrent-Mark-Sweep Performance}
+Figure~\ref{cassandragc} shows the increase of both major and minor GC time due to the additional Cassandra instances runnning. As CMS, it uses the same \textit{Parallel Scavenge} collector as the parallel collected utilizd by DaCapo experiments for reclaimining space from the young generation. Thus, it's not surprising to see an identical pattern of minor GC slowdown occurs early in \ref{sssec:overallperfresults}, in which the run time of minor GC increases linearly as a function of the number of concurrently running JVMs. This similarity confirms the early idea that synchronization between threads during garbage collection does not seem to be fine grained enough for scheduling interference to be significant in our experiement\
+The difference between the old generation collectors of CMS and Parallel GC is that the latter invokes a \testit{stop-the-world} event when cleaning and compacting the old generation, while the former introduces only two short pauses on \testit{inital mark} and \testit{remark}. The key idea of CMS is to do other part of major GC at the same time as the applicaiton is running. Thus, GC threads actually run together with user threads. In \testit{stop-the-world} event, CPU only needs to care about the synchronization and scheduling of GC threads, but in CMS it is required to schedule both user threads and GC threads. We hypothesize that different scheduling policies would affect the performance of this part a lot and JVM interference would have a bigger impact to the major gabdge collector than the minor collector. The steeper slope of major GC run time plot confirms our idea. We see a clear, sharp increase of CMS time from 1 JVM to 2 JVMs and 4 JVMs, which indicates the fact that major GC suffers more due to JVM interference.
+
+and we hypothesize that adding extra JVMs 
 %Like tables, figures cannot be split across pages; the
 %best placement for them
 %is typically the top or the bottom of the page nearest
