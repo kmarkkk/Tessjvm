@@ -148,8 +148,6 @@ We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset 
 \\\\
 \textbf{Xalan:} Xalan transformed a XML document featuring the works of Shakespeare into HTML. Xalan is multithreaded, creating a thread for each available CPU. Threads process elements off a work queue in parallel.
 
-%TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
-
 \subsection{Experimental Setup}
 \begin{figure}
 \centering
@@ -177,6 +175,8 @@ In the interest of space, we only showcase results for two of our benchmarks, av
 \subsubsection{Overall Performance}
 
 \begin{figure*}
+%TODO Explain slowdown
+
 \centering
 \epsfig{file=figures/slowdowns/avrora.eps,  height=1.5in, width=2.25in}
 \epsfig{file=figures/cdfs/avrora_128MB.eps,  height=1.5in, width=2.25in}
@@ -187,22 +187,32 @@ In the interest of space, we only showcase results for two of our benchmarks, av
 \caption{Runtime slowdown relative to 1 JVM, CDF of iteration runtimes, and fraction of CPU time spent in \textit{concurrency hazard} respectively.}
 \end{figure*}
 
-\subsubsection{Parallel Garbage Collector Performance}
+\subsubsection{Parallel Garbage Collector Performance} \label{sssec:overallperfresults}
+When a parallel garbage collector is utilized, synchronization is necessary at the start and end phases of garbage collection. All application threads are paused and brought to a safe point before the GC event and all GC threads need to finish before the application threads continue running again. Scheduling interference may cause clock skew between these application and GC threads. We hypothesize that as we linearly increase the number of concurrently running JVMs, GC run times will increase non-linearly due to the overhead of blocking and waiting for these threads to synchronize.
+
+Figure ~\ref{fig:gcperf} shows the GC slowdown relative to 1 JVM. Like our slowdown graphs for overall performance, resource saturation occurs when 4 and 2 JVMs run in parallel respectively for avrora and xalan. After saturation, GC run time increases linearly as a function of the number of concurrently running JVMs, paralleling the results found for overall performance. The synchronization between threads during garbage collection does not seem to be fine grained enough for scheduling interference to be significant \cite{feitelson1992gang}. Work stealing for load balancing of garbage collection threads also prevent GC threads from blocking and waiting for long times.
 
 \begin{figure*}
 \centering
 \epsfig{file=figures/gc/avrora.eps, height=2.3in, width=3.45in}
 \epsfig{file=figures/gc/xalan.eps, height=2.3in, width=3.45in}
 \caption{GC runtime slowdown relative to 1 JVM.}
+\label{fig:gcperf}
 \end{figure*}
 
 \subsubsection{Advanced Optimizer Performance}
+%TODO read Jefferson section 
+At run time, the HotSpot compiler performs extensive profiling of an application and uses that data to aggressively optimize machine code for the current execution environment\cite{hotspot:whitepaper}. We have demonstrated in section \ref{sssec:overallperfresults} that in the presence of multiple running JVMs, performance becomes more inconsistent for individual iterations. Thus, we hypothesize that if optimization occurs during a period of high load on the system, unpredictable performance may cause the advanced optimizer to make poor decisions translating the byte code to optimal machine code for the system.
+
+Figure~\ref{fig:jitperf} compares the performance of two different JVMs running a benchmark in isolation. Error bars of one standard deviation are displayed on the graph. For both avrora and xalan, there was no statistical difference between a JVM that has warmed up in isolation with a JVM that has warmed up with 15 other peers. The variation in iteration run times due to interference is not large enough to cause a JVM to optimize machine code differently. The performance increase from identifying and compiling hot spots in the first place is also probably more significant to performance than any fine tuning to machine code. 
+%TODO future work here?
 
 \begin{figure*}
 \centering
 \epsfig{file=figures/jit/avrora.eps, height=2.3in, width=3.45in}
 \epsfig{file=figures/jit/xalan.eps, height=2.3in, width=3.45in}
 \caption{Mean total runtime of JVMs warmed up in isolation and with 16 running JVMs in parallel.}
+\label{fig:jitperf}
 \end{figure*}
 
 %Because tables cannot be split across pages, the best
