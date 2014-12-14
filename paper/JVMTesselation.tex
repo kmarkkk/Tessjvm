@@ -260,7 +260,7 @@ Figure~\ref{fig:jitperf} compares the performance of two different JVMs running 
 \section{Cassandra with Xen}
 
 %TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
-Cassandra is a write-optimized distributed NoSQL DBMS implemented in Java originally designed by Facebook \cite{lakshman2010cassandra}. It provides linear scalability and high availability, and the proven fault-tolerance on commodity hardware makes it a strong candidate for cloud infrustruecture. As mentioned in seciton~\ref{sec:introduction}, Cassandra is now widely used on cloud computing side by famous companies including Twitter and Hulu \footnote{For a full list of companies on Cassandra, see http://planetcassandra.org/companies/}, running concurrently with other Java applications on a single machine. The experiment here attempts to investigate the interference and GC pressures that arise from running multiple Cassandra JVMs. This refers to some real world scenarios, such as Amazon Dynamo \cite{hastorun2007dynamo}, where multiple virtual nodes are running concurrently on a single physical node.
+Cassandra is a write-optimized distributed NoSQL DBMS implemented in Java originally designed by Facebook \cite{lakshman2010cassandra}. It provides linear scalability and high availability, and the proven fault-tolerance on commodity hardware makes it a strong candidate for cloud infrustruecture. As mentioned in seciton~\ref{sec:introduction}, Cassandra is now widely used on cloud computing side by popular companies like Twitter and Hulu \footnote{For a full list of companies on Cassandra, see http://planetcassandra.org/companies/}, running concurrently with other Java applications on a single machine. The experiment here attempts to investigate the interference and GC pressures that arise from running multiple Cassandra JVMs. This refers to some real world scenarios, such as Amazon Dynamo \cite{hastorun2007dynamo}, where multiple virtual nodes are running concurrently on a single physical node.
 
 \subsection{YCSB}
 To measure the performance of concurrent Cassandra instances, we use YCSB, Yahoo Cloud System Benchmark \cite{cooper2010benchmarking}, as our benchmark to issue workload requests to Cassandra nodes. It's also written in Java. With YCSB, we are able to control the request type and workload distritbution. We also set up the total record size and request number to fit our machine capacity.
@@ -272,13 +272,35 @@ To measure the performance of concurrent Cassandra instances, we use YCSB, Yahoo
 \caption{The set up of Cassandra and YCSB pairs}
 \label{fig:cassandrasetup}
 \end{figure}
-Same as the DaCapo setup in ~\ref{expsetup}, we run both Cassandra and YCSB as OS$^{v}$ guest domains upon Xen hypervisor on the exactly same machine and infrusturcture. Basically, the architecture of our experiment is set up as shown in Figure~\ref{cassandrasetup}. We pair each YCSB domain with exactly one Cassandra domain, so each Cassandra instance will receive the full number of requests configured in the YCSB workload file. The main reason for this independent setup is to maintain consistent workload across multiple Cassandra instances. It's possible to start one YCSB to issue requests to all Cassandra domains, but the automatic load balance between nodes happened in YCSB could be unpredicable and may skew the result. All domains are configured in a private LAN through a Xen bridge, to minimize the network influence on request latency and throughput. Given the high memory demand from Cassandra DBMS and the 12GB memory cap of the test machine, we limit each Cassandra domain to 2GB memory and each YCSB domian to 512MB memory. This means we can scale up to at most 4 Cassandra JVMs. All domains run with 6 virtual cpus on the default Xen credit scheduler. Since the Cassandra domain has only 2GB in total, we cap the record count in each database to 5000, with 10 fields each. The first field is the primary key, and the 9 left are varchar fields. We set the request count to 100,000, and run two kind of core workloads. The first one is update heavy, which consists of 50\% read and 50\% update. Typical application for the workload is session store which records recent actions. The second workload is read-modify-write heavy. Related application can be user database, where user records are read and modified by the user or to record user activity. This one includes 50\% read and 50\% read-modify-write. Both workloads use zipfian distribution for requests. %TODO expaln this
-The data size is set to 1K, so each field gets 100 bytes. For each experiement, we first run a load phrase to populate the database, and then run one iteration of the workload run phrase to help Cassandra get warm up. After that, we run 5 iterations of run phrase and record the overall as well as operation level lantency and throughput. The final value is the average of those numbers across multiple JVMs during 5 iterations. Besides that, we record the GC stats.
+Same as the DaCapo setup in ~\ref{expsetup}, we run both Cassandra and YCSB as OS$^{v}$ guest domains upon Xen hypervisor on the same machine and infrusturcture. Basically, the architecture of our experiment is set up as shown in Figure~\ref{cassandrasetup}. We pair each YCSB domain with one Cassandra domain, so each Cassandra instance will receive the full number of requests configured in the YCSB workload file. The main reason for this independent setup is to maintain consistent workload across multiple Cassandra instances. It's possible to start one YCSB to issue requests to all Cassandra domains, but the automatic load balance between nodes happened in YCSB could be unpredicable and may skew the result. All domains are configured in a private LAN through a Xen bridge, to minimize the network influence on request latency and throughput. Given the high memory demand from Cassandra DBMS and the 12GB memory cap of the test machine, we limit each Cassandra domain to 2GB memory and each YCSB domian to 512MB memory. This means we can scale up to at most 4 Cassandra JVMs. All domains run with 6 virtual cpus on the default Xen credit scheduler. Since the Cassandra domain has only 2GB in total, we cap the record count in each database to 5000, with 10 fields each. The first field is the primary key, and the other 9 fields are of type varchar. For the experiments, we first measure the overall performance of benchmarking multiple Cassandra instances concurrently with two different types of workloads, then we measure the impact on \testit{Concurrent-Mark-Sweep} GC when adding extra JVMs.
 
 \subsubsection{Overall Performance}
-We run the workload with 1,2,4 Cassandra instances.
+Due to the memory limit, we only with 1,2,4 cassandra instances, which involve 2,4,8 JVMs. We set the request count to 100,000 and run two kinds of workloads. The first one is update heavy, which consists of 50\% read and 50\% update. Typical application for this kind of workload is session store which records recent actions. The second workload involves a large portion of read-modify-write. Related applications include user database, where user records are read and modified by the user or to record user activity. This one has 50\% read and 50\% read-modify-write. Both workloads use zipfian distribution when picking record to update. This long-tail , where an item's frequncy is inversely propotiaonal to its rank, simulates the real world fact a few records will be extremely popular while most records will be unpopular \cite{adamic2002zipf}. The data size is set to 1K, so each field gets 100 bytes. For each benchmark, we first run a load phrase to populate the database, then run one iteration of run phrase to get Cassandra warm up. After that, we run 5 iterations of run phrase and record the overall as well as operation-level lantency and throughput. The final value is the average of those numbers across multiple JVMs during 5 iterations.
+
+\subsubsection{Concurrent-Mark-Sweep Collector Performance}
+In the same setup, we run the JVMs with flags \textit{-XX:+UseParNewGC} and \textit{-XX:+UseConcMarkSweepGC} to turn on the \textit{CMS} collector. We record the GC time for both minor and major(mark and sweep) collections that occur during the execution of the 5 iterations of run phrase after warm up.
+
+\begin{figure*}
+
+\centering
+\epsfig{file=figures/cassandra/read99.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cassandra/rw99.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cassandra/update99.eps,  height=1.5in, width=2.25in}
+\caption{Operation-level latency change as adding extra JVMs for read, read-modify-write, and update.}
+\label{fig:cassandraresults}
+\end{figure*}
+
+\begin{figure}
+\centering
+\epsfig{file=figures/cassandra/gc.eps, height=2.75in, width=3in}
+\caption{GC total time changes under same workload with additional JVMs}
+\label{fig:cassandragc}
+\end{figure}
 
 \subsection{Results}
+
+\subsubsection{Overall Performance}
+AA
 %Like tables, figures cannot be split across pages; the
 %best placement for them
 %is typically the top or the bottom of the page nearest

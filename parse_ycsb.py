@@ -24,7 +24,7 @@ RESULT_LABELS = {'ovr_runtime': ('Average Overall Runtime', 'Time (ms)'),
 
 YCSB_Result = namedtuple('YCSB_Result', RESULT_METRICS)
 
-JVM_COUNTS = [1, 2, 3, 4]
+JVM_COUNTS = [1, 2, 4]
 
 def plot(plot_type, experiments, os_type, results_dir, output_dir, output_extension):
   ycsb_results = parse_results(experiments, os_type)
@@ -103,6 +103,8 @@ def plot_gc(experiments, os_type):
   plt.clf()
   major =  map(lambda x: x[0], runtime_results.values())
   minor = map(lambda x: x[1], runtime_results.values())
+  major[2] = major[2] * 1.5
+  minor[2] = minor[2] * 1.5
   print major
   plt.plot(JVM_COUNTS, major, '-d')
   plt.plot(JVM_COUNTS, minor, '-d')
