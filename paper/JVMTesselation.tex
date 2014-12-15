@@ -354,8 +354,9 @@ Figure~\ref{fig:gsresults} shows the average overall total run time of avrora an
 We are surprised that run times for individual iterations become more unpredictable under the affects of gang scheduling, disproving our initial guess. We are unsure why this behavior is happening but perhaps there is variation in how long vCPUs block for within a scheduling quantum. Blocking may occur early in the quantum, resulting in a lot of wasted CPU cycles, or not at all. Overall, gang scheduling does not benefit it anyway our the default credit scheduler for our DaCapo benchmarks.
 
 \section{Future Work}
+As we are currently limited by the instability of Xen4Tess with gang scheduling on our test machine, we plan to replicate each of our DaCapo experiments with gang scheduling as soon as such a more stable implementation is available. We wish to more accurately compare benchmark behavior under gang scheduling with our base case.
 
-Figure out what kind of workload it would take in order for interference to become a problem.
+We also plan to scale these experiments up on a machine with more resources and execute more JVM instances (32, 64, 100) to extract more evidence to verify our measurements. Similarly, we plan to also examine more types of workloads, perhaps synthetic ones. We expect to find different results for workloads with finer grained synchronization and/or strict timing requirements.
 
 \section{Related Work}
 
