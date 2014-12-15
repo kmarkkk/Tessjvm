@@ -124,9 +124,9 @@ The \textit{parallel compacting (PC)} collector is a stop-the-world collector th
 
 \subsubsection{HotSpot Advanced Optimization}
 
-Traditional JIT compilers perform compilation just before execution, and thus are limited in terms of compile time and the types of optimizations they make. For example, since Java supports features such as dynamic class loading, it cannot perform some types of aggressive optimizations such as extensive method-inlining. HotSpot's adaptive optimization component  addresses several of these obstacles by initially interpreting the entire program and, by monitoring program execution, selectively compiling only certain parts of the code during run time. This technique is based on the observation that for many programs, most of program's execution time is spent executing only a small portion of the program's code. Instead of spending valuable time and resources compiling code which is rarely executed, the compiler can detect "hot spots" in the code that are run very frequently and focus optimization on those parts. This includes, but is not limited to, compiling and caching these "hot spots." In addition, by \textit{code profiling} or monitoring and gathering information about the program's execution patterns, HotSpot can perform some of the aggressive optimizations done by static compilers, including method-inlining, as well as new types of optimization techniques. One important example of this is \textit{dynamic deoptimization}. Since execution patterns can change and new code can be loaded while the program is running, the HotSpot advanced optimizer can deoptimize (e.g. revert back to interpretation) and reoptimize the code in response.
-%TODO cite the articles and slides I read
-Of course, performing this profiling, analysis, optimization consumes resources. Profiling itself actually costs a relatively small amount of overhead. It consists largely of maintaining performance counters to monitor method and loop entries. However, the analysis and JIT compilation portion of the optimizer can consume a significant amount of resources, depending on how the program is written and how stable the code profile is. This compilation and analysis is performed alongside the application. In addition, a fair amount of synchronization is required in order to dynamically modify code paths safely and efficiently.
+Traditional JIT compilers perform compilation just before execution, and thus are limited in terms of compile time and the types of optimizations they make. For example, since Java supports features such as dynamic class loading, it cannot perform some types of aggressive optimizations such as extensive method-inlining. HotSpot's adaptive optimization component  addresses several of these obstacles by initially interpreting the entire program and, by monitoring program execution, selectively compiling only certain parts of the code during run time \cite{hotspot:whitepaper}. This technique is based on the observation that for many programs, most of program's execution time is spent executing only a small portion of the program's code. Instead of spending valuable time and resources compiling code which is rarely executed, the compiler can detect "hot spots" in the code that are run very frequently and focus optimization on those parts. This includes, but is not limited to, compiling and caching these "hot spots." In addition, by \textit{code profiling} or monitoring and gathering information about the program's execution patterns, HotSpot can perform some of the aggressive optimizations done by static compilers, including method-inlining, as well as new types of optimization techniques. One important example of this is \textit{dynamic deoptimization}. Since execution patterns can change and new code can be loaded while the program is running, the HotSpot advanced optimizer can deoptimize (e.g. revert back to interpretation) and reoptimize the code in response.
+
+Of course, performing this profiling, analysis, optimization consumes resources. Profiling itself actually costs a relatively small amount of overhead. It consists largely of maintaining performance counters to monitor method and loop entries \cite{hohensee:overview}. However, the analysis and JIT compilation portion of the optimizer can consume a significant amount of resources, depending on how the program is written and how stable the code profile is. This compilation and analysis is performed alongside the application. In addition, a fair amount of synchronization is required in order to dynamically modify code paths safely and efficiently.
 
 HotSpot comes packaged with three choices for compilers: the client compiler, server compiler, and tiered compiler. The client compiler focuses on being fast and minimizing startup delays by performing mostly quick and simple local optimizations. In contrast, the server compiler is designed for server-like, long-running programs. It performs a number of complex, advanced optimizations that require extra time in order to gather the large amount of profiling data needed. The tiered compiler attempts to achieve "the best of both worlds" by initially 
 
@@ -134,7 +134,7 @@ HotSpot comes packaged with three choices for compilers: the client compiler, se
 
 \subsection{Tessellation}
 
-\textit{Adaptive Resource Centric Computing (ARCC)} is a design paradigm which establishes an interface between resources and applications through the abstraction of \textit{cells}.  \cite{colmenares2013tessellation}. A cell is essentially a stable, consistent resource container for applications. A cell can also be used as a wrapper for a set of resources and exposes a service interface for that r to other cells. Resources are allocated to cells and the applications running within them are provided quality of service guarantees for those resources. Within ARCC, resource allocations to cells are automatically adjusted in such a way to best meet application requirements.
+\textit{Adaptive Resource Centric Computing (ARCC)} is a design paradigm which establishes an interface between resources and applications through the abstraction of \textit{cells} \cite{colmenares2013tessellation}. A cell is essentially a stable, consistent resource container for applications. A cell can also be used as a wrapper for a set of resources and exposes a service interface for that r to other cells. Resources are allocated to cells and the applications running within them are provided quality of service guarantees for those resources. Within ARCC, resource allocations to cells are automatically adjusted in such a way to best meet application requirements.
 
 The Tessellation OS architecture \cite{colmenares2010resource, colmenares2013tessellation, liu2009tessellation} implements cells using an approach \textit{space-time partitioning}, in which hardware resources are virtualized, "spacially" partitioned, and time multiplexed. Concretely, this means that resources such as CPU cores, memory, and service guarantees from other cells can be partitioned and shared by a number of processes. Tessellation's model for accomplishing this is through \textit{two-level scheduling}, which separates resource allocation (first level) from how those resources are used (second level).
 
@@ -222,50 +222,9 @@ Figure~\ref{fig:gcperf} shows the GC run time slowdown relative to 1 JVM. We cal
 \label{fig:jitperf}
 \end{figure*}
  
-At run time, the HotSpot compiler performs extensive profiling of an application and uses that data to aggressively optimize machine code for the current execution environment\cite{hotspot:whitepaper}. We have demonstrated in section \ref{sssec:overallperfresults} that in the presence of multiple running JVMs, performance becomes more inconsistent for individual iterations. Thus, we hypothesize that if optimization occurs during a period of high load on the system, unpredictable performance may cause the adaptive optimizer to make \textit{poor decisions} translating the byte code to optimal machine code for the system.
+At run time, the HotSpot compiler performs extensive profiling of an application and uses that data to aggressively optimize machine code for the current execution environment \cite{hotspot:whitepaper}. We have demonstrated in section \ref{sssec:overallperfresults} that in the presence of multiple running JVMs, performance becomes more inconsistent for individual iterations. Thus, we hypothesize that if optimization occurs during a period of high load on the system, unpredictable performance may cause the adaptive optimizer to make \textit{poor decisions} translating the byte code to optimal machine code for the system.
 
 Figure~\ref{fig:jitperf} compares the performance of two different JVMs running a benchmark in isolation. Error bars of one standard deviation are displayed on the graph. We calculate the mean total running time of the next 5 iterations after warm up for 5 JVMs. For both avrora and xalan, there was no statistical difference between a JVM that has warmed up in isolation with a JVM that has warmed up with 15 other peers. The variation in iteration run times due to interference is not large enough to cause a JVM to optimize machine code differently. The performance increase from identifying and compiling hot spots in the first place is also probably more significant to performance than any fine tuning of machine code. We do not expect the adaptive optimizer to benefit from gang scheduling.
-
-%Because tables cannot be split across pages, the best
-%placement for them is typically the top of the page
-%nearest their initial cite.  To
-%ensure this proper ``floating'' placement of tables, use the
-%environment \textbf{table} to enclose the table's contents and
-%the table caption.  The contents of the table itself must go
-%in the \textbf{tabular} environment, to
-%be aligned properly in rows and columns, with the desired
-%horizontal and vertical rules.  Again, detailed instructions
-%on \textbf{tabular} material
-%is found in the \textit{\LaTeX\ User's Guide}.
-%
-%Immediately following this sentence is the point at which
-%Table 1 is included in the input file; compare the
-%placement of the table here with the table in the printed
-%dvi output of this document.
-%
-
-%To set a wider table, which takes up the whole width of
-%the page's live area, use the environment
-%\textbf{table*} to enclose the table's contents and
-%the table caption.  As with a single-column table, this wide
-%table will ``float" to a location deemed more desirable.
-%Immediately following this sentence is the point at which
-%Table 2 is included in the input file; again, it is
-%instructive to compare the placement of the
-%table here with the table in the printed dvi
-%output of this document.
-
-%\begin{table*}
-%\centering
-%\caption{Some Typical Commands}
-%\begin{tabular}{|c|c|l|} \hline
-%Command&A Number&Comments\\ \hline
-%\texttt{{\char'134}alignauthor} & 100& Author alignment\\ \hline
-%\texttt{{\char'134}numberofauthors}& 200& Author enumeration\\ \hline
-%\texttt{{\char'134}table}& 300 & For tables\\ \hline
-%\texttt{{\char'134}table*}& 400& For wider tables\\ \hline\end{tabular}
-%\end{table*}
-%% end the environment with {table*}, NOTE not {table}!
 
 \section{Cassandra with Xen} \label{sec:cassandra}
 
@@ -319,25 +278,6 @@ Figure~\ref{fig:cassandragc} shows the increase of both major and minor GC time 
 
 The difference between the old generation collectors of CMS and Parallel GC is that the latter invokes a \textit{stop-the-world} event when cleaning and compacting the old generation, while the former introduces only two short pauses on \textit{inital mark} and \textit{remark} phrases. The key idea of CMS is to do other part of major GC at the same time as the application is running. Thus, GC threads actually run together with user threads. In \textit{stop-the-world} GC event, CPU only needs to care about the synchronization and scheduling of GC threads, but in CMS case it is required to schedule both user threads and GC threads. We hypothesize that different scheduling policies would affect the performance of this part a lot and JVM interference would have a bigger impact to the major garbage collector than the minor collector here. The steeper slope of major GC run time plot confirms our idea. We see a clear, sharp increase of CMS time from 1 Cassandra instances to 2 instances and 4 instances, which reveals the fact that major GC suffers more due to JVM interference.
 
-
-%Like tables, figures cannot be split across pages; the
-%best placement for them
-%is typically the top or the bottom of the page nearest
-%their initial cite.  To ensure this proper ``floating'' placement
-%of figures, use the environment
-%\textbf{figure} to enclose the figure and its caption.
-%
-%This sample document contains examples of \textbf{.eps}
-%and \textbf{.ps} files to be displayable with \LaTeX.  More
-%details on each of these is found in the \textit{Author's Guide}.
-
-%As was the case with tables, you may want a figure
-%that spans two columns.  To do this, and still to
-%ensure proper ``floating'' placement of tables, use the environment
-%\textbf{figure*} to enclose the figure and its caption.
-%and don't forget to end the environment with
-%{figure*}, not {figure}!
-
 \begin{figure*}
 \centering
 \epsfig{file=figures/gs/runtimes.eps, height=2.3in, width=3.45in}
@@ -359,10 +299,9 @@ Figure~\ref{fig:gsresults} shows the average overall total run time of avrora an
 We are surprised that run times for individual iterations become more unpredictable under the affects of gang scheduling, disproving our initial guess. We are unsure why this behavior is happening but perhaps there is variation in how long vCPUs block for within a scheduling quantum. Blocking may occur early in the quantum, resulting in a lot of wasted CPU cycles, or not at all. Overall, gang scheduling does not benefit it anyway our the default credit scheduler for our DaCapo benchmarks.
 
 \subsection{Cassandra} \label{subsec:cassandragang}
-It is unfortunate that we couldn't get gang scheduling working on our test machine to repeat the previous Cassandra experiments, but some upcoming features of Xen4Tess and gang scheduling keep us believing that they would improve the test performance. We argue that gang scheduling could be used to benefit final results on a couple of aspects\cite{feitelson1992gang}.
+It is unfortunate that we couldn't get gang scheduling working on our test machine to repeat the previous Cassandra experiments, but some upcoming features of Xen4Tess and gang scheduling keep us believing that they would improve the test performance. We argue that gang scheduling could be used to benefit final results on a couple of aspects \cite{feitelson1992gang}.
 \\\textbf{I.} With gang scheduling, the system could schedule related threads or processes to run simultaneously on different processors. Take the previous Cassandra and YCSB case, the gang scheduler could be aware of their need to communicate and schedule them together. It avoids the situation that one side of communication is blocked while the other side is active.
 \\\textbf{II.} A parallel job will achieve max overall progress if its components are evenly partitioned and execute simultaneously. Scheduling tasks in a gang run at same time and same pace helps threads to reach synchronization points at similar time. This applies to the scheduling of both major and minor GC threads in Cassandra experiments.
-
 
 \section{Future Work} \label{sec:futurework}
 As we are currently limited by the instability of Xen4Tess with gang scheduling on our test machine, we plan to replicate each of our DaCapo experiments with gang scheduling as soon as such a more stable implementation is available. We wish to more accurately compare benchmark behavior under gang scheduling with our base case.
