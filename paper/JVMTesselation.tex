@@ -74,6 +74,8 @@ Benjamin Le \and Jefferson Lai \and Wenxuan Cai \and John Kubiatowicz\titlenote{
       \affaddr{Berkeley, CA 94720-1776}
 }
 
+\CopyrightYear{2014}
+
 \maketitle
 \begin{abstract}
 Java applications run within Java Virtual Machines (JVM). As an application runs, the JVM performs many parallel background tasks for general housekeeping reasons including garbage collection and code profiling for adaptive optimization. While this design works well to provide isolation when there is a single or small number of Java applications running on a single machine, in practice it is common to find a large number of Java applications running concurrently on a single machine. For example, a machine could be running multiple instances of HDFS, Hadoop, and Spark, simultaneously, with each instance having an associated JVM. As all of these JVMs must ultimately be multiplexed onto a single set of hardware, interference among the large set of parallel tasks arise. There is little published literature documenting the causes of this interference or how to deal with it. In this paper, we determine the specific sources of these interferences and show how running these applications on top of a Tessellation-integrated Xen hypervisor addresses these issues and reduces interference. We evaluate the performance of these “Tessellated” machines in comparison with machines running bare Linux when running a large number of JVMs.
