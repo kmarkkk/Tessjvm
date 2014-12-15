@@ -159,7 +159,7 @@ We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset 
 
 Figure~\ref{fig:dacaposetup} showcases our experimental setup. Our setup uses the OpenJDK7 implementation of the Java platform. We deploy our JVMs in Virtual Machines running the OS$^{v}$ 0.13 Operating System \cite{aviOSv2014}. OS$^{v}$ VMs are run as guest domains on the Xen 4.4 hypervisor \cite{barham2003xen}. The hypervisor runs on a 2-socket machine with 2 Intel Core i7-920 processors at 2.67GHz (4 cores per socket, Hyperthreading off,  8 total CPUs).  Our test machine has 12GB of physical memory and runs Ubuntu 14.04.01. Each Xen guest domain runs with 6 vCPUs and is allocated 512MB of memory. We run Xen domains within a 6-CPU Pool while reserving 2 CPUs and 3GB of memory for Domain-0.  
 
-We run three experiments using DaCapo and Xen's default credit scheduler for CPU resources. First, we measure the overall performance of running JVM's in parallel. Second, we measure the pause times of a \textit{stop-the-world} parallel garbage collector. Third, we explore the performance of HotSpot's adaptive optimizer during warm up phase while running along side multiple JVMs. For all experiments, the same benchmark is run across all JVMs that run concurrently using the default workload size.
+We run three experiments using DaCapo and Xen's default credit scheduler for CPU resources. First, we measure the overall performance of running JVMs in parallel. Second, we measure the pause times of a \textit{stop-the-world} parallel garbage collector. Third, we explore the performance of HotSpot's adaptive optimizer during warm up phase while running along side multiple JVMs. For all experiments, the same benchmark is run across all JVMs that run concurrently using the default workload size.
 
 \subsubsection{Overall Performance} \label{sssec:overallperf}
 For each benchmark in our subset, we run 1, 2, 4, 8, and 16 JVMs in parallel with maximum heap sizes of 64MB, 128MB, and 256MB. We warm up our JVMs by running the benchmark for some number of iterations. The number of warm up iterations is empirically determined by calculating the average number of iterations needed until performance stabilizes for that benchmark. We continue to run the benchmark until all JVMs complete at least 5 more iterations after warm up.  The execution times of these 5 iterations are recorded. We also recorded the percentage of CPU time each domain spends in the \textit{concurrency hazard} runstate using the xentrace and xenalyze tools. Concurrency hazard is the domain state where some vCPUs are running while the other vCPUs are waiting to be scheduled to run. 
@@ -176,7 +176,7 @@ In the interest of space, we only showcase results for two of our benchmarks, av
 \subsubsection{Overall Performance}
 We begin by profiling overall performance as we scale the number of concurrently running JVMs on our system. The left most column in Figure~\ref{fig:overallperf} shows the overall total run time slowdown relative to 1 JVM. We calculate slowdown by dividing the mean total run time for the next 5 iterations after warm up for N JVMs over that for 1 JVM. For avrora and xalan respectively, performance is stable for up to 4 and 2 concurrently running JVMs. Because these benchmarks are quite old, \textit{resource saturation} does not occur until multiple JVMs are deployed. After saturation, there is a roughly linear increase in slowdown.
 
-In the center column, we graph the average fraction of CPU time spent in the concurrency hazard run state as we scale up the number of JVMs. We wish to explore whether or not the credit scheduler is naturally gang scheduling CPU's for our applications. We are most interested in the concurrency hazard run state because this is when vCPU clock skew occurs, which can be reduced if vCPUs are gang scheduled together. We hypothesize that increasing the number of JVMs will increase the chance of being in the concurrency hazard run state. Our results show that this is true, the fraction time spent in concurrency hazard spikes and then slowly dips off scaling to 16 JVMs. Investigating why this dip off occurs, we discovered that domains spend an majority of their time in the partial contention run state, up to 50\% for avrora and 60\% for xalan for 16 JVMs. Partial contention is when some vCPUs are waiting to be run while others are blocked, as opposed to running for concurrency hazard. We believe that the increase in time spent in partial contention is due to hitting IO bounds when scaling up the number of JVMs.
+In the center column, we graph the average fraction of CPU time spent in the concurrency hazard run state as we scale up the number of JVMs. We wish to explore whether or not the credit scheduler is naturally gang scheduling CPUs for our applications. We are most interested in the concurrency hazard run state because this is when vCPU clock skew occurs, which can be reduced if vCPUs are gang scheduled together. We hypothesize that increasing the number of JVMs will increase the chance of being in the concurrency hazard run state. Our results show that this is true, the fraction time spent in concurrency hazard spikes and then slowly dips off scaling to 16 JVMs. Investigating why this dip off occurs, we discovered that domains spend an majority of their time in the partial contention run state, up to 50\% for avrora and 60\% for xalan for 16 JVMs. Partial contention is when some vCPUs are waiting to be run while others are blocked, as opposed to running for concurrency hazard. We believe that the increase in time spent in partial contention is due to hitting IO bounds when scaling up the number of JVMs.
 
 In the right most column, we graph the continous density function for iteration run times of all 5 iterations after warm up across all JVMs. We are interested in how variation for run time is affected as we scale up the number of JVMs. We only show CDFs for 128MB maxmium heap size because CDFs for 64MB and 256MB are very similar. For both avrora and xalan, we experience longer tails on both ends when running 16 JVMs in parallel. This indicates that the end user running these JVMs will experience more inconsistent performance under increasing multi-tenancy in the system. 
 
@@ -340,7 +340,18 @@ A custom Xen hypervisor (Xen4Tess) featuring a prototype implementation of a gan
 Nevertheless, we were able to get a similar setup to Figure~\ref{fig:dacaposetup} up and running on one our workstations to run small experiments on. In this setup a Xen4Tess hypervisor runs on a single-socket machine with an Intel Core i5-3570k processor at 3.4GHz (4 cores per socket, Hyperthreading off,  4 total CPUs) and 16GB of physical memory. Each Xen guest domain runs with 3 vCPUs and is allocated 512MB of memory. We run Xen domains within a 3-CPU Gang Scheduled Pool while reserving 1 CPU and 7GB of memory for Domain-0.
 
 \subsection{Dacapo}
-Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination. However, we were unable to use xentrace and xenalyze to observe runstates for gang scheduled domains because unexpected runstate transitions would occur due to the gang scheduler.
+\begin{figure*}[t!]
+\centering
+\epsfig{file=figures/gs/runtimes.eps, height=2.3in, width=3.45in}
+\epsfig{file=figures/gs/std.eps, height=2.3in, width=3.45in}
+\caption{Overall performance and iteration standard deviation comparison of credit and gang scheduling}
+\label{fig:gsresults}
+\end{figure*}
+Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination. However, we were unable to use xentrace and xenalyze to observe run states for gang scheduled domains because unexpected runstate transitions would occur due to the gang scheduler.
+
+Figure~\ref{fig:gsresults} shows the average overall total run time of avrora and xalan for both credit and gang scheduling. We graph the iteration run time standard deviations as well. In section~\ref{sssec:overallperf}, we hypothesized that overall performance will not improve much with gang scheduling. However, we did not expect that the gang scheduler would be so detrimental to performance. Avrora total run time increased 1.9x over credit scheduling while xalan increased 1.2x. When profiling the domain run states in section~\ref{sssec:overallperf}, we did discover that vCPUs block more often when scaling up to 16 JVMs. Because gang scheduling is unable to reassign pCPUs to different domains when the current domain's threads block, we end up wasting many CPU cycles that could be occupied with work from other domains. The over provisioning of CPU resources also affects performance negatively because resource saturation does not occur until multiple JVMs are run in parallel.
+
+We are surprised that run times for individual iterations become more unpredictable under the affects of gang scheduling, disproving our initial guess. We are unsure why this behavior is happening but perhaps there is variation in how long vCPUs block for within a scheduling quantum. Blocking may occur early in the quantum, resulting in a lot of wasted CPU cycles, or not at all. Overall, gang scheduling does not benefit it anyway our the default credit scheduler for our DaCapo benchmarks.
 
 \section{Future Work}
 
@@ -359,15 +370,6 @@ Figure out what kind of workload it would take in order for interference to beco
 Martin
 Nathan
 Eric
-
-\begin{table}
-\centering
-\caption{Standard Deviations of Dacapo Benchmarks}
-\begin{tabular}{|c|c|l|} \hline
-Benchmark&Standard Deviation&Variance\\ \hline
-avrora &1000&100\\
-\hline\end{tabular}
-\end{table}
 
 % The following two commands are all you need in the
 % initial runs of your .tex file to
