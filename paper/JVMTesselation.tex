@@ -376,8 +376,7 @@ We also plan to scale these experiments up on a machine with more resources and 
 To verify our hypothesis in Section~\ref{subsec:cassandragang}, we plan to explicitly gang schedule processes which need mutual communication and experiment with more resource allocation policies. Besides that, we intend to explore the Tessellation event-triggered cell \cite{colmenares2013tessellation}, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment.
 
 \section{Related Work}
-
-%TODO Either defend against "Gang scheduling isn't worth it yet" paper or (possibly?) use it as an explanation.
+\textbf{Gang scheduling for VMs.} Rather than strictly gang scheduling vCPUs together, VMWare uses a relaxed co-scheduling algorithm that ensures that the skew on each vCPU does not grow too large in comparison to its peers \cite{vmware:whitepaper}. vCPUs that are lagging behind can be run individually to catch up while those that advanced too far stop and wait. Although more overhead is needed to keep track of vCPU progress, the scheduler benefits by having more flexibility in scheduling choices.
 
 \section{Conclusion}
 
