@@ -366,7 +366,7 @@ As we are currently limited by the instability of Xen4Tess with gang scheduling 
 
 We also plan to scale these experiments up on a machine with more resources and execute more JVM instances (32, 64, 100) to extract more evidence to verify our measurements. Similarly, we plan to also examine more types of workloads, perhaps synthetic ones. We expect to find different results for workloads with finer grained synchronization and/or strict timing requirements.
 
-To verify our hypothesis in \ref{subsec:cassandragang}, we plan to explicitly gang schedule processes which need mutual communication and experiment with more resource allocation policies. Besides that, we intend to explore the Tessellation event-triggered cell \cite{colmenares2013tessellation}, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment.
+To verify our hypothesis in Section~\ref{subsec:cassandragang}, we plan to explicitly gang schedule processes which need mutual communication and experiment with more resource allocation policies. Besides that, we intend to explore the Tessellation event-triggered cell \cite{colmenares2013tessellation}, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment.
 
 \section{Related Work}
 
