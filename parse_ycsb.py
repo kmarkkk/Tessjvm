@@ -8,7 +8,7 @@ import argparse
 from collections import defaultdict, namedtuple
 
 YCSB_DIR = 'cassandra_ycsb'
-RESULT_METRICS = ['ovr_runtime', 'ovr_thruput', 'r_latency', 'r_95_latency', 'r_99_latency', 'u_latency', 'u_95_latency', 'u_99_latency']
+RESULT_METRICS = ['ovr_runtime', 'ovr_thruput', 'r_latency', 'r_95_latency', 'r_99_latency', 'u_latency', 'u_95_latency', 'u_99_latency', 'rw_latency', 'rw_95_latency', 'rw_99_latency']
 RESULT_LABELS = {'ovr_runtime': ('Average Overall Runtime', 'Time (ms)'),
                  'ovr_thruput': ('Average Overall Throughput', 'Operations per second'),
                  'r_95_latency': ('95th Percentile Read Latency', 'Latency (ms)'),
@@ -17,6 +17,9 @@ RESULT_LABELS = {'ovr_runtime': ('Average Overall Runtime', 'Time (ms)'),
                  'u_latency': ('Update Operation Latency', u'Latency (\u03bcs)'),
                  'u_95_latency': ('95th Percentile Update Latency', 'Latency (ms)'),
                  'u_99_latency': ('99th Percentile Update Latency', 'Latency (ms)'),
+                 'rw_latency': ('Read-Modify-Write Operation Latency', u'Latency (\u03bcs)'),
+                 'rw_95_latency': ('95th Percentile Read-Modify-Write Latency', 'Latency (ms)'),
+                 'rw_99_latency': ('99th Percentile Read-Modify-Write Latency', 'Latency (ms)'),
                  }
 
 YCSB_Result = namedtuple('YCSB_Result', RESULT_METRICS)
@@ -35,7 +38,7 @@ def plot(plot_type, experiments, os_type, results_dir, output_dir, output_extens
   plt.plot(JVM_COUNTS, metric_values, '-d')
   plt.title(RESULT_LABELS[plot_type][0])
   plt.ylabel(RESULT_LABELS[plot_type][1])
-  plt.xlabel("Number of JVMs")
+  plt.xlabel("Number of Cassandra instances")
   plt.xlim(0, max(JVM_COUNTS)+1)
   plt.ylim(0, max(metric_values)*1.1)
 
@@ -61,15 +64,29 @@ def parse_results(experiments, os_type):
         # Store results from each iteration this JVM ran
         iter_results['ovr_runtime'].append(float(re.search("RunTime\(ms\), (\d+\.\d+)", contents).groups()[0]))
         iter_results['ovr_thruput'].append(float(re.search("Throughput\(ops/sec\), (\d+\.\d+)", contents).groups()[0]))
-        u_latency, r_latency, cleanup_latency = map(float, re.findall("AverageLatency\(us\), (\d+\.\d+)", contents))
-        u_95_latency, r_95_latency, cleanup_95_latency = map(float, re.findall("95thPercentileLatency\(ms\), (\d+)", contents))
-        u_99_latency, r_99_latency, cleanup_99_latency = map(float, re.findall("99thPercentileLatency\(ms\), (\d+)", contents))
+        lantency = map(float, re.findall("AverageLatency\(us\), (\d+\.\d+)", contents))
+        lantency_95 = map(float, re.findall("95thPercentileLatency\(ms\), (\d+)", contents))
+        lantency_99 = map(float, re.findall("99thPercentileLatency\(ms\), (\d+)", contents))
+        rw_95_latency = 0
+        rw_99_latency = 0
+        rw_latency = 0
+        if len(lantency_95) > 3:
+          u_latency, rw_latency, r_latency, cleanup_latency  = lantency
+          u_95_latency, rw_95_latency, r_95_latency, cleanup_95_latency = lantency_95
+          u_99_latency, rw_99_latency, r_99_latency, cleanup_99_latency = lantency_99
+        else:
+          u_latency, r_latency, cleanup_latency  = lantency
+          u_95_latency, r_95_latency, cleanup_95_latency = lantency_95
+          u_99_latency, r_99_latency, cleanup_99_latency = lantency_99
         iter_results['u_latency'].append(u_latency)
         iter_results['r_latency'].append(r_latency)
         iter_results['r_95_latency'].append(r_95_latency)
         iter_results['r_99_latency'].append(r_99_latency)
         iter_results['u_95_latency'].append(u_95_latency)
         iter_results['u_99_latency'].append(u_99_latency)
+        iter_results['rw_latency'].append(rw_95_latency)
+        iter_results['rw_95_latency'].append(rw_95_latency)
+        iter_results['rw_99_latency'].append(rw_99_latency)
       # Record average across iterations for each JVM instance
       for metric in RESULT_METRICS:
         per_jvm_averages[metric].append(np.mean(iter_results[metric]))
@@ -91,7 +108,7 @@ def plot_gc(experiments, os_type):
   plt.legend(['Major GC', 'Minor GC'], loc='upper right')
   plt.title('Cassandra Total GC Times')
   plt.ylabel('Total Time in GC (s)')
-  plt.xlabel("Number of JVMs")
+  plt.xlabel("Number of Cassandra instances")
   plt.xlim(0, max(JVM_COUNTS)+1)
   plt.ylim(0, max(major + minor)*1.1)
   plt.show()

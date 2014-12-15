@@ -88,6 +88,7 @@ Java applications run within Java Virtual Machines (JVM). As an application runs
 \keywords{Adaptive resource management, performance isolation, quality of service}
 
 \section{Introduction}
+\label{sec:introduction}
 
 The Java Virtual Machine (JVM) abstraction provides a consistent, contained execution environment for Java applications and has played a significant role in Java's popularity and success in recent years. The JVM abstraction encapsulates many tasks and responsibilities that make development faster and easier. For example, by handling the translation of portable Java bytecode to machine code specific to the lower level kernel and system architecture, the JVM allows developers to write an application once and run it in a number of different environments. While there exist a number of JVM implementations, maintained both privately and publicly, in general, implementations adhere to a single JVM specification. We refer the reader to \cite{lindholm2014java} for a complete specification, but summarize the roles of two key, highly researched components of the JVM: the adaptive optimization component of the "just in time" (JIT) compiler and the garbage collector (GC) \cite{hotspot:whitepaper}.
 
@@ -138,7 +139,7 @@ The DaCapo Benchmark suite is a diverse set of open source, real world applicati
 
 The benchmark harness supports multiple workload sizes, user-specified number of iterations to run a benchmark for, and the reporting of a performance stable iteration.
 
-We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset of this suite is used for our experiments (avrora, jython, luindex, xalan). The subset was chosen based off which benchmarks ran without errors within our guest OS, OS$^{v}$ \cite{aviOSv2014}. The characteristics of these 4 benchmarks are described below.
+We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset of this suite is used for our experiments (avrora, jython, luindex, xalan). The subset was chosen based off which benchmarks ran without errors within our guest OS, OS$^{v}$ \cite{aviOSv2014}. The characteristics of these 4 benchmarks are listed below.
 \\\\
 \textbf{Avrora:} Avrora is a multithreaded application which simulates programs being run on a grid of AVR microcontrollers. Each microcontroller is simulated by a single thread. Avrora exhibits high fine-grained synchronization between simulator threads.
 \\\\
@@ -148,9 +149,7 @@ We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset 
 \\\\
 \textbf{Xalan:} Xalan transformed a XML document featuring the works of Shakespeare into HTML. Xalan is multithreaded, creating a thread for each available CPU. Threads process elements off a work queue in parallel.
 
-%TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
-
-\subsection{Experimental Setup}
+\subsection{Experimental Setup}\label{subsec:expsetup}
 \begin{figure}
 \centering
 \epsfig{file=figures/dacaposetupdiagramcrop.eps, height=3.75in, width=3in}
@@ -160,18 +159,69 @@ We utilize the DaCapo 9.12 bach benchmark suite released in 2009. Only a subset 
 
 Figure~\ref{fig:dacaposetup} showcases our experimental setup. Our setup uses the OpenJDK7 implementation of the Java platform. We deploy our JVMs in Virtual Machines running the OS$^{v}$ 0.13 Operating System \cite{aviOSv2014}. OS$^{v}$ VMs are run as guest domains on the Xen 4.4 hypervisor \cite{barham2003xen}. The hypervisor runs on a 2-socket machine with 2 Intel Core i7-920 processors at 2.67GHz (4 cores per socket, Hyperthreading off,  8 total CPUs).  Our test machine has 12GB of physical memory and runs Ubuntu 14.04.01. Each Xen guest domain runs with 6 vCPUs and is allocated 512MB of memory. We run Xen domains within a 6-CPU Pool while reserving 2 CPUs and 3GB of memory for Domain-0.  
 
-We run three experiments using DaCapo and Xen's default credit scheduler for CPU resources. First, we measure the overall performance of running JVM's in parallel. Second, we measure the pause times of a \textit{stop-the-world} parallel garbage collector. Third, we explore the performance of HotSpot's advanced optimizer during warm up phase while running along side multiple JVMs. For all experiments, the same benchmark is run across all JVMs that run concurrently using the default workload size.
+We run three experiments using DaCapo and Xen's default credit scheduler for CPU resources. First, we measure the overall performance of running JVMs in parallel. Second, we measure the pause times of a \textit{stop-the-world} parallel garbage collector. Third, we explore the performance of HotSpot's adaptive optimizer during warm up phase while running along side multiple JVMs. For all experiments, the same benchmark is run across all JVMs that run concurrently using the default workload size.
 
 \subsubsection{Overall Performance} \label{sssec:overallperf}
 For each benchmark in our subset, we run 1, 2, 4, 8, and 16 JVMs in parallel with maximum heap sizes of 64MB, 128MB, and 256MB. We warm up our JVMs by running the benchmark for some number of iterations. The number of warm up iterations is empirically determined by calculating the average number of iterations needed until performance stabilizes for that benchmark. We continue to run the benchmark until all JVMs complete at least 5 more iterations after warm up.  The execution times of these 5 iterations are recorded. We also recorded the percentage of CPU time each domain spends in the \textit{concurrency hazard} runstate using the xentrace and xenalyze tools. Concurrency hazard is the domain state where some vCPUs are running while the other vCPUs are waiting to be scheduled to run. 
 
 \subsubsection{Parallel Garbage Collector Performance}
-In the same setup in Experiment 1, we run the parallel JVMs with the \textit{-XX:-UseParallelOldGC} flag turned on. This specifies that a parallel garbage collector be used for both the young and old generations. We record the GC pause times for both minor and major(Full) collections that occur during the execution of the next 5 iterations after warm up.
+In the same setup in Experiment 1, we run the parallel JVMs with the \textit{-XX:-UseParallelOldGC} flag turned on. This specifies that a parallel garbage collector be used for both the young and old generations. We record the GC pause times for both minor and major(full) collections that occur during the execution of the next 5 iterations after warm up.
 
-\subsubsection{Advanced Optimizer Performance}
+\subsubsection{Adaptive Optimizer Performance}
 First, for each benchmark, we run a single JVM in isolation with maximum heap sizes of 64MB, 128MB, and 256MB. Similarly to Experiment 1, we record the execution times of the next 5 iterations after warm up. Next, we warm up a single JVM with the same heap sizes, while the machine is under the load of 15 other JVMs running the same benchmark. After warm up, we kill the other JVMs and run the single JVM in isolation; again recording the execution times of the next 5 iterations. We repeat these steps for each combination of benchmark and heap size 5 times recording 5 data points per combination.
 
 \subsection{Results}
+In the interest of space, we only showcase results for two of our benchmarks, avrora and xalan. The other two benchmarks exhibit similar behavior that are more pronounced in avrora and xalan.
+
+\subsubsection{Overall Performance}
+We begin by profiling overall performance as we scale the number of concurrently running JVMs on our system. The left most column in Figure~\ref{fig:overallperf} shows the overall total run time slowdown relative to 1 JVM. We calculate slowdown by dividing the mean total run time for the next 5 iterations after warm up for N JVMs over that for 1 JVM. For avrora and xalan respectively, performance is stable for up to 4 and 2 concurrently running JVMs. Because these benchmarks are quite old, \textit{resource saturation} does not occur until multiple JVMs are deployed. After saturation, there is a roughly linear increase in slowdown.
+
+In the center column, we graph the average fraction of CPU time spent in the concurrency hazard run state as we scale up the number of JVMs. We wish to explore whether or not the credit scheduler is naturally gang scheduling CPUs for our applications. We are most interested in the concurrency hazard run state because this is when vCPU clock skew occurs, which can be reduced if vCPUs are gang scheduled together. We hypothesize that increasing the number of JVMs will increase the chance of being in the concurrency hazard run state. Our results show that this is true, the fraction time spent in concurrency hazard spikes and then slowly dips off scaling to 16 JVMs. Investigating why this dip off occurs, we discovered that domains spend an majority of their time in the partial contention run state, up to 50\% for avrora and 60\% for xalan for 16 JVMs. Partial contention is when some vCPUs are waiting to be run while others are blocked, as opposed to running for concurrency hazard. We believe that the increase in time spent in partial contention is due to hitting IO bounds when scaling up the number of JVMs.
+
+In the right most column, we graph the continous density function for iteration run times of all 5 iterations after warm up across all JVMs. We are interested in how variation for run time is affected as we scale up the number of JVMs. We only show CDFs for 128MB maxmium heap size because CDFs for 64MB and 256MB are very similar. For both avrora and xalan, we experience longer tails on both ends when running 16 JVMs in parallel. This indicates that the end user running these JVMs will experience more inconsistent performance under increasing multi-tenancy in the system. 
+
+Under gang scheduling, we do not expect overall performance to improve but we believe that performance to become \textit{more consistent} due to a more accurate abstraction of CPU resources.
+
+\begin{figure*}
+\centering
+\epsfig{file=figures/slowdowns/avrora.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/xenalyze/avrora.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cdfs/avrora_128MB.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/slowdowns/xalan.eps, height=1.5in, width=2.25in}
+\epsfig{file=figures/xenalyze/xalan.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cdfs/xalan_128MB.eps,  height=1.5in, width=2.25in}
+\caption{Run time slowdown relative to 1 JVM, CDF of iteration run times, and fraction of CPU time spent in \textit{concurrency hazard} respectively.}
+\label{fig:overallperf}
+\end{figure*}
+
+\subsubsection{Parallel Garbage Collector Performance} \label{sssec:overallperfresults}
+When a parallel garbage collector is utilized, synchronization is necessary at the start and end phases of garbage collection (GC) \cite{hotspot:whitepaper}. All application threads are paused and brought to a safe point before the GC event and all GC threads need to finish before the application threads continue running again. Scheduling interference may cause \textit{clock skew} between these application and GC threads. We hypothesize that as we linearly increase the number of concurrently running JVMs, GC run times will increase non-linearly due to the overhead of blocking and waiting for these threads to synchronize.
+
+Figure~\ref{fig:gcperf} shows the GC run time slowdown relative to 1 JVM. We calculate slowdown by dividing the total time spent in GC for the next 5 iterations after warm up for N JVMs over that for 1 JVM. Like our slowdown graphs for overall performance, resource saturation occurs when 4 and 2 JVMs run in parallel respectively for avrora and xalan. After saturation, GC run time increases linearly, paralleling the results found for overall performance. The synchronization between threads during GC does not seem to be fine grained enough for scheduling interference to be significant \cite{feitelson1992gang}. Work stealing for load balancing of GC also prevent GC threads from blocking and waiting for long times during collection time itself \cite{stoptheworldgc}. We do not expect GC performance to improve with gang scheduling.
+
+\begin{figure*}
+\centering
+\epsfig{file=figures/gc/avrora.eps, height=2.3in, width=3.45in}
+\epsfig{file=figures/gc/xalan.eps, height=2.3in, width=3.45in}
+\caption{GC run time slowdown relative to 1 JVM.}
+\label{fig:gcperf}
+\end{figure*}
+
+\subsubsection{Adaptive Optimizer Performance}
+\begin{figure*}
+\centering
+\epsfig{file=figures/jit/avrora.eps, height=2.3in, width=3.45in}
+\epsfig{file=figures/jit/xalan.eps, height=2.3in, width=3.45in}
+\caption{Mean total run time of JVMs warmed up in isolation and with 16 running JVMs in parallel.}
+\label{fig:jitperf}
+\end{figure*}
+
+%TODO read Jefferson section 
+At run time, the HotSpot compiler performs extensive profiling of an application and uses that data to aggressively optimize machine code for the current execution environment\cite{hotspot:whitepaper}. We have demonstrated in section \ref{sssec:overallperfresults} that in the presence of multiple running JVMs, performance becomes more inconsistent for individual iterations. Thus, we hypothesize that if optimization occurs during a period of high load on the system, unpredictable performance may cause the adaptive optimizer to make \textit{poor decisions} translating the byte code to optimal machine code for the system.
+
+Figure~\ref{fig:jitperf} compares the performance of two different JVMs running a benchmark in isolation. Error bars of one standard deviation are displayed on the graph. We calculate the mean total running time of the next 5 iterations after warm up for 5 JVMs. For both avrora and xalan, there was no statistical difference between a JVM that has warmed up in isolation with a JVM that has warmed up with 15 other peers. The variation in iteration run times due to interference is not large enough to cause a JVM to optimize machine code differently. The performance increase from identifying and compiling hot spots in the first place is also probably more significant to performance than any fine tuning of machine code. We do not expect the adaptive optimizer to benefit from gang scheduling.
+%TODO future work here?
+
 
 %Because tables cannot be split across pages, the best
 %placement for them is typically the top of the page
@@ -190,14 +240,6 @@ First, for each benchmark, we run a single JVM in isolation with maximum heap si
 %placement of the table here with the table in the printed
 %dvi output of this document.
 %
-\begin{table}
-\centering
-\caption{Standard Deviations of Dacapo Benchmarks}
-\begin{tabular}{|c|c|l|} \hline
-Benchmark&Standard Deviation&Variance\\ \hline
-avrora &1000&100\\
-\hline\end{tabular}
-\end{table}
 
 %To set a wider table, which takes up the whole width of
 %the page's live area, use the environment
@@ -222,13 +264,58 @@ avrora &1000&100\\
 %\end{table*}
 %% end the environment with {table*}, NOTE not {table}!
 
-\section{YCSB with Xen}
+\section{Cassandra with Xen}
 
 %TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
+Cassandra is a write-optimized distributed NoSQL DBMS implemented in Java originally designed by Facebook \cite{lakshman2010cassandra}. It provides linear scalability and high availability, and the proven fault-tolerance on commodity hardware makes it a strong candidate for cloud infrastructure. As mentioned in seciton~\ref{sec:introduction}, Cassandra is now widely used on cloud computing side by popular tech companies like Twitter and Hulu \footnote{See http://planetcassandra.org/companies for a full list.}, running concurrently with other Java applications on a single machine. The experiment here attempts to investigate the interference and GC pressures that arise from running multiple Cassandra JVMs. This refers to some real world scenarios, such as Amazon Dynamo \cite{hastorun2007dynamo}, where multiple virtual nodes are running concurrently on a single physical node.
+
+\subsection{YCSB}
+To measure the performance of concurrent Cassandra instances, we use YCSB, Yahoo Cloud System Benchmark \cite{cooper2010benchmarking}, as our benchmark to issue workload requests to Cassandra nodes. It is also written in Java. With YCSB, we are able to control the request type and workload distribution. We also manage the total record size and request number to fit our machine capacity.
 
 \subsection{Experimental Setup}
+\begin{figure}
+\centering
+\epsfig{file=figures/cassandrasetupdigram.eps, height=2.25in, width=3in}
+\caption{The set up of Cassandra and YCSB pairs}
+\label{fig:cassandrasetup}
+\end{figure}
+Same as the DaCapo setup in ~\ref{subsec:expsetup}, we run both Cassandra and YCSB as OS$^{v}$ guest domains upon Xen hypervisor on the same machine and infrastructure. Basically, the architecture of our experiment is set up as shown in Figure~\ref{fig:cassandrasetup}. We pair each YCSB domain with one Cassandra domain, so each Cassandra instance will receive the same number of requests configured in the YCSB workload file. The main reason for this independent setup is to maintain consistent workload across multiple Cassandra instances. It is possible to start one YCSB to issue requests to all Cassandra domains, but the automatic load balance between nodes happened in YCSB could be unpredictable and may skew the result. All domains are configured in a private LAN through a Xen bridge, to minimize the network influence on request latency and throughput. Given the high memory demand from Cassandra DBMS and the 12GB memory cap of the test machine, we limit each Cassandra domain to 2GB memory and each YCSB domain to 512MB memory. This means we can scale up to at most 4 Cassandra plus YCSB domains. All domains run with 6 virtual cpus on the default Xen credit scheduler. Since the Cassandra domain has only 2GB in total, we cap the record count in each database to 5000, with 10 fields each. The first field is the primary key, and the other 9 fields are of type varchar. For the experiments, we first measure the overall performance of benchmarking multiple Cassandra instances concurrently with two different types of workloads, then we measure the impact on \textit{Concurrent-Mark-Sweep} GC when adding extra JVMs.
+
+\subsubsection{Overall Performance}
+Due to the memory limit, we only test with 1,2,4 cassandra instances, which involve 2,4,8 JVMs. We set the request count to 100,000 and run two kinds of workloads. The first one is update heavy, which consists of 50\% read and 50\% update. Typical application for this kind of workload is session store which records recent actions. The second workload involves a large portion of read-modify-write. Related applications include user database, where user records are read and modified by the user or to record user activity. This one has 50\% read and 50\% read-modify-write. Both workloads use zipfian distribution when picking record to update. This long-tail distribution, where an item's frequency is inversely proportional to its rank, simulates the real world fact a few records will be extremely popular while most records will be unpopular \cite{adamic2002zipf}. The data size is set to 1KB, so each field gets 100 bytes. For each benchmark, we first run a load phrase to populate the database, then run one iteration of run phrase to get Cassandra warm up. After that, we run 5 iterations of run phrase and record the overall as well as operation-level latency and throughput. The final value is measured as the average of those numbers across multiple JVMs during 5 iterations.
+
+\subsubsection{Concurrent-Mark-Sweep Performance}
+In the same setup as previous experiment, We run the Cassandra domains with flag \textit{-XX:+UseParNewGC} to turn on the \textit{CMS} collector with the same experiment setup above. We record the GC time for both minor and major(mark and sweep) collection phrases that occur during the execution of the 5 iterations of run phrase after warm up.
+
+\begin{figure*}
+
+\centering
+\epsfig{file=figures/cassandra/read99.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cassandra/rw99.eps,  height=1.5in, width=2.25in}
+\epsfig{file=figures/cassandra/update99.eps,  height=1.5in, width=2.25in}
+\caption{Operation-level 99 percentile latency increases as adding extra Cassandra instances for read, read-modify-write, and update.}
+\label{fig:cassandraresults}
+\end{figure*}
+
+\begin{figure}
+\centering
+\epsfig{file=figures/cassandra/gc.eps, height=2.75in, width=3in}
+\caption{GC total time increases under same workload with additional Cassandra instances}
+\label{fig:cassandragc}
+\end{figure}
 
 \subsection{Results}
+After running both workloads, we got similar performance degradation relative to the number of Cassandra instances. Due to the space limit, we decide to only put the results of the read-modify-write here as the representative.
+
+\subsubsection{Overall Performance}
+We showcase the individual 99$^{th}$ percentile latency plot for read, update, and read-modify-write in Figure~\ref{fig:cassandraresults}. As shown in the graph, all operations experience a higher delay when running more Cassandra instances concurrently, and, especially for read, a slightly bigger interference occurs from 2 Cassandra instances to 4 instances than from 1 to 2. There is no saturation point as in the DaCapo experiment, and we attribute the relatively better robustness of write than read to Cassandras's write optimization which utilizes \textit{memtable} and \textit{sstable} \cite{lakshman2010cassandra}. For the extra slowdown from 2 Cassandra domains to 4 domains, we hypothesize the reason that in the 2 Cassandra domains case, there are 4 JVMs (including 2 YCSB JVMs) in total, and all domains can be scheduled concurrently on 6 physical cpus. However, with 4 domains of 8 JVMs, despite that not all domains can run at the same time, it's unlikely that the scheduler would notice the paired Cassandra and YCSB domains and schedule them together, so chances are one side is blocked while the other side is running. We would revisit this problem when discussing about Gang scheduling later.
+
+\subsubsection{Concurrent-Mark-Sweep Performance}
+Figure~\ref{fig:cassandragc} shows the increase of both major and minor GC time due to the additional Cassandra instances running. As CMS, it uses the same \textit{Parallel Scavenge} collector as the parallel collected utilized by DaCapo experiments for reclaiming space from the young generation. Thus, it's not surprising to see an identical pattern of minor GC slowdown occurs early in \ref{sssec:overallperfresults}, in which the run time of minor GC increases linearly as a function of the number of concurrently running JVMs. This similarity confirms the early idea that synchronization between threads during garbage collection does not seem to be fine grained enough for scheduling interference to be significant in our experiment.
+
+The difference between the old generation collectors of CMS and Parallel GC is that the latter invokes a \textit{stop-the-world} event when cleaning and compacting the old generation, while the former introduces only two short pauses on \textit{inital mark} and \textit{remark} phrases. The key idea of CMS is to do other part of major GC at the same time as the application is running. Thus, GC threads actually run together with user threads. In \textit{stop-the-world} GC event, CPU only needs to care about the synchronization and scheduling of GC threads, but in CMS case it is required to schedule both user threads and GC threads. We hypothesize that different scheduling policies would affect the performance of this part a lot and JVM interference would have a bigger impact to the major garbage collector than the minor collector here. The steeper slope of major GC run time plot confirms our idea. We see a clear, sharp increase of CMS time from 1 Cassandra instances to 2 instances and 4 instances, which reveals the fact that major GC suffers more due to JVM interference.
+
+
 %Like tables, figures cannot be split across pages; the
 %best placement for them
 %is typically the top or the bottom of the page nearest
@@ -240,13 +327,6 @@ avrora &1000&100\\
 %and \textbf{.ps} files to be displayable with \LaTeX.  More
 %details on each of these is found in the \textit{Author's Guide}.
 
-\begin{figure}
-\centering
-\epsfig{file=figures/avrora.eps, height=2in, width=3in}
-\caption{A sample graphic (.eps format)
-that has been resized with the \texttt{epsfig} command.}
-\end{figure}
-
 %As was the case with tables, you may want a figure
 %that spans two columns.  To do this, and still to
 %ensure proper ``floating'' placement of tables, use the environment
@@ -254,20 +334,31 @@ that has been resized with the \texttt{epsfig} command.}
 %and don't forget to end the environment with
 %{figure*}, not {figure}!
 
-\begin{figure*}
-\centering
-\epsfig{file=figures/luindex.eps}
-\caption{A sample black and white graphic (.eps format)
-that needs to span two columns of text.}
-\end{figure*}
-
 \section{Gang Scheduling}
 A custom Xen hypervisor (Xen4Tess) featuring a prototype implementation of a gang-scheduled CPU Pool was used for our gang-scheduling experiments. The gang scheduler runs vCPUs of Xen domains one after another with a fixed 50ms scheduling quantum. Unfortunately, we were unable to install a stable version of Xen4Tess on our test machine. Furthermore, limitations in domains shutting down or doing anything other than running at full-boar prevented us from running our full experimental suite for both credit and gang scheduling in time. Before running an experiment with a new combination of benchmark and heap size, old running VMs are shutdown causing the whole machine to hang.
 
 Nevertheless, we were able to get a similar setup to Figure~\ref{fig:dacaposetup} up and running on one our workstations to run small experiments on. In this setup a Xen4Tess hypervisor runs on a single-socket machine with an Intel Core i5-3570k processor at 3.4GHz (4 cores per socket, Hyperthreading off,  4 total CPUs) and 16GB of physical memory. Each Xen guest domain runs with 3 vCPUs and is allocated 512MB of memory. We run Xen domains within a 3-CPU Gang Scheduled Pool while reserving 1 CPU and 7GB of memory for Domain-0.
 
 \subsection{Dacapo}
-Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination.
+\begin{figure*}[t!]
+\centering
+\epsfig{file=figures/gs/runtimes.eps, height=2.3in, width=3.45in}
+\epsfig{file=figures/gs/std.eps, height=2.3in, width=3.45in}
+\caption{Overall performance and iteration standard deviation comparison of credit and gang scheduling}
+\label{fig:gsresults}
+\end{figure*}
+Using gang scheduling and this new machine, we reperformed the experiment in section \ref{sssec:overallperf} to measure overall performance for each of our benchmarks for only the 16 parallel JVMs, 128MB maximum heap size combination. However, we were unable to use xentrace and xenalyze to observe run states for gang scheduled domains because unexpected runstate transitions would occur due to the gang scheduler.
+
+Figure~\ref{fig:gsresults} shows the average overall total run time of avrora and xalan for both credit and gang scheduling. We graph the iteration run time standard deviations as well. In section~\ref{sssec:overallperf}, we hypothesized that overall performance will not improve much with gang scheduling. However, we did not expect that the gang scheduler would be so detrimental to performance. Avrora total run time increased 1.9x over credit scheduling while xalan increased 1.2x. When profiling the domain run states in section~\ref{sssec:overallperf}, we did discover that vCPUs block more often when scaling up to 16 JVMs. Because gang scheduling is unable to reassign pCPUs to different domains when the current domain's threads block, we end up wasting many CPU cycles that could be occupied with work from other domains. The over provisioning of CPU resources also affects performance negatively because resource saturation does not occur until multiple JVMs are run in parallel.
+
+We are surprised that run times for individual iterations become more unpredictable under the affects of gang scheduling, disproving our initial guess. We are unsure why this behavior is happening but perhaps there is variation in how long vCPUs block for within a scheduling quantum. Blocking may occur early in the quantum, resulting in a lot of wasted CPU cycles, or not at all. Overall, gang scheduling does not benefit it anyway our the default credit scheduler for our DaCapo benchmarks.
+
+\subsection{Cassandra}
+It is unfortunate that we couldn't get gang scheduling working on our test machine to repeat the previous Cassandra experiments, but some upcoming features of Xen4Tess and gang scheduling keep us believing that they would improve the test performance. We argue that gang scheduling could be used to benefit final results in the following aspects\cite{feitelson1992gang}.
+\\\textbf{I.} With gang scheduling, the system could schedule related threads or processes to run simultaneously on different processors. Take the previous Cassandra and YCSB case, the gang scheduler could be aware of their need to communicate and schedule them together. It avoids the situation that one side of communication is blocked while the other side is active.
+\\\textbf{II.} A parallel job will achieve max overall progress if its components are evenly partitioned and execute simultaneously. Scheduling tasks in a gang run at same time and same pace helps threads to reach synchronization points at similar time. This applies to the scheduling of both major and minor GC threads in Cassandra experiments.
+\\\textbf{III.} Tessellation provides event-triggered cell, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment\cite{colmenares2013tessellation}.
+
 
 \section{Future Work}
 
