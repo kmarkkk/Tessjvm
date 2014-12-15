@@ -355,17 +355,18 @@ Figure~\ref{fig:gsresults} shows the average overall total run time of avrora an
 
 We are surprised that run times for individual iterations become more unpredictable under the affects of gang scheduling, disproving our initial guess. We are unsure why this behavior is happening but perhaps there is variation in how long vCPUs block for within a scheduling quantum. Blocking may occur early in the quantum, resulting in a lot of wasted CPU cycles, or not at all. Overall, gang scheduling does not benefit it anyway our the default credit scheduler for our DaCapo benchmarks.
 
-\subsection{Cassandra}
-It is unfortunate that we couldn't get gang scheduling working on our test machine to repeat the previous Cassandra experiments, but some upcoming features of Xen4Tess and gang scheduling keep us believing that they would improve the test performance. We argue that gang scheduling could be used to benefit final results in the following aspects\cite{feitelson1992gang}.
+\subsection{Cassandra} \label{subsec:cassandragang}
+It is unfortunate that we couldn't get gang scheduling working on our test machine to repeat the previous Cassandra experiments, but some upcoming features of Xen4Tess and gang scheduling keep us believing that they would improve the test performance. We argue that gang scheduling could be used to benefit final results on a couple of aspects\cite{feitelson1992gang}.
 \\\textbf{I.} With gang scheduling, the system could schedule related threads or processes to run simultaneously on different processors. Take the previous Cassandra and YCSB case, the gang scheduler could be aware of their need to communicate and schedule them together. It avoids the situation that one side of communication is blocked while the other side is active.
 \\\textbf{II.} A parallel job will achieve max overall progress if its components are evenly partitioned and execute simultaneously. Scheduling tasks in a gang run at same time and same pace helps threads to reach synchronization points at similar time. This applies to the scheduling of both major and minor GC threads in Cassandra experiments.
-\\\textbf{III.} Tessellation provides event-triggered cell, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment\cite{colmenares2013tessellation}.
 
 
 \section{Future Work}
 As we are currently limited by the instability of Xen4Tess with gang scheduling on our test machine, we plan to replicate each of our DaCapo experiments with gang scheduling as soon as such a more stable implementation is available. We wish to more accurately compare benchmark behavior under gang scheduling with our base case.
 
 We also plan to scale these experiments up on a machine with more resources and execute more JVM instances (32, 64, 100) to extract more evidence to verify our measurements. Similarly, we plan to also examine more types of workloads, perhaps synthetic ones. We expect to find different results for workloads with finer grained synchronization and/or strict timing requirements.
+
+To verify our hypothesis in \ref{subsec:cassandragang}, we plan to explicitly gang schedule processes which need mutual communication and experiment with more resource allocation policies. Besides that, we intend to explore the Tessellation event-triggered cell \cite{colmenares2013tessellation}, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment.
 
 \section{Related Work}
 
