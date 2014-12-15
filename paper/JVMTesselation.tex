@@ -221,12 +221,10 @@ Figure~\ref{fig:gcperf} shows the GC run time slowdown relative to 1 JVM. We cal
 \caption{Mean total run time of JVMs warmed up in isolation and with 16 running JVMs in parallel.}
 \label{fig:jitperf}
 \end{figure*}
-
-%TODO read Jefferson section 
+ 
 At run time, the HotSpot compiler performs extensive profiling of an application and uses that data to aggressively optimize machine code for the current execution environment\cite{hotspot:whitepaper}. We have demonstrated in section \ref{sssec:overallperfresults} that in the presence of multiple running JVMs, performance becomes more inconsistent for individual iterations. Thus, we hypothesize that if optimization occurs during a period of high load on the system, unpredictable performance may cause the adaptive optimizer to make \textit{poor decisions} translating the byte code to optimal machine code for the system.
 
 Figure~\ref{fig:jitperf} compares the performance of two different JVMs running a benchmark in isolation. Error bars of one standard deviation are displayed on the graph. We calculate the mean total running time of the next 5 iterations after warm up for 5 JVMs. For both avrora and xalan, there was no statistical difference between a JVM that has warmed up in isolation with a JVM that has warmed up with 15 other peers. The variation in iteration run times due to interference is not large enough to cause a JVM to optimize machine code differently. The performance increase from identifying and compiling hot spots in the first place is also probably more significant to performance than any fine tuning of machine code. We do not expect the adaptive optimizer to benefit from gang scheduling.
-%TODO future work here?
 
 %Because tables cannot be split across pages, the best
 %placement for them is typically the top of the page
@@ -369,10 +367,7 @@ It is unfortunate that we couldn't get gang scheduling working on our test machi
 \section{Future Work} \label{sec:futurework}
 As we are currently limited by the instability of Xen4Tess with gang scheduling on our test machine, we plan to replicate each of our DaCapo experiments with gang scheduling as soon as such a more stable implementation is available. We wish to more accurately compare benchmark behavior under gang scheduling with our base case.
 
-We also plan to scale these experiments up on a machine with more resources and execute more JVM instances (32, 64, 100) to extract more evidence to verify our measurements. Similarly, we plan to also examine more types of workloads, including synthetic ones. We expect to find different results for workloads with finer grained synchronization and/or strict timing requirements.
-
-%TODO Try different cell types (time triggered, event triggered, etc.)
-%TODO We should talk about exploring the other garbage collector options in the future work section.
+We also plan to scale these experiments up on a machine with more resources and execute more JVM instances (32, 64, 100) to extract more evidence to verify our measurements. Similarly, we plan to also examine more types of workloads, including synthetic ones. We expect to find different results for workloads with finer grained synchronization and/or strict timing requirements. We wish to also run experiments using different combinations of garbage collection algorithms for young and old generations.
 
 To verify our hypothesis in Section~\ref{subsec:cassandragang}, we plan to explicitly gang schedule processes which need mutual communication and experiment with more resource allocation policies. Besides that, we intend to explore the Tessellation event-triggered cell \cite{colmenares2013tessellation}, an ideal model for hosting services. It supplies a flexible event-handling as well as good responsiveness and resource utilization, which fits well with the role of Cassandra in our experiment.
 
@@ -387,11 +382,8 @@ Our experiences with gang scheduling reflect some of the findings in \cite{peter
 
 %TODO Things we might want to talk about: communication, synchronization, interactivity/responsiveness/timing/QoS requirements
 
-%ACKNOWLEDGMENTS are optional
 \section{Acknowledgments}
-Martin
-Nathan
-Eric
+We would like to thank Martin Maas for advising us throughout our project along with Nathan Pemberton for writing the gang scheduler implementation for Xen, and Eric Roman and Kostadin Ilov for providing and setting up test machines.
 
 % The following two commands are all you need in the
 % initial runs of your .tex file to
