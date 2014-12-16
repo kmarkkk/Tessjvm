@@ -244,7 +244,7 @@ def runDacapo(options):
                             domain1 = "osv-%s-%d" % (options.test, procsAndFiles[0][0].pid)
                             xl_list = subprocess.check_output(['sudo', 'xl', 'list'])
                             domain1_id = re.findall(r"%s\s*(\d*)" % domain1, xl_list)[0]
-                            subprocess.call(["sudo", "./gsc", '-d', domain1_id, '-p', '1', '-c', '1', '-t', 'tt,200,100'])
+                            subprocess.call(["sudo", "./gsc", '-d', domain1_id, '-p', '1', '-c', '1,2,3', '-t', 'tt,200,100'])
                         else:
                             for proc, stdout, stderr, i in procsAndFiles:
                                 subprocess.call(["sudo", "xl", "unpause", "osv-%s-%d" % (options.test, proc.pid)])
