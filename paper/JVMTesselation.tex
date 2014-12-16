@@ -78,6 +78,7 @@ Benjamin Le \and Jefferson Lai \and Wenxuan Cai \and John Kubiatowicz\titlenote{
 
 \maketitle
 \begin{abstract}
+Java Virtual Machines (JVM) are responsible for performing a number of tasks in addition to program execution, including those related to garbage collection and adaptive optimization. Given the popularity of the Java platform and the rapid growth in use of cloud computing services, cluster machines are expected to host a number of concurrently executing JVMs. Despite the virtual machine abstraction, interference can arise between JVMs and degrade performance. One approach to prevent such multi-tenancy issues is the utilization of resource-isolated containers. This paper profiles the performance of Java applications executing with the resource-isolated cells of Adaptive Resource-Centric Computing and the Tessellation OS. Within this setup, we demonstrate how overall performance and JVM efficiency for the DaCapo benchmarks and Cassandra on the Yahoo Cloud Serving Benchmark degrade. We compare the effect of gang scheduling the threads of a cell together with using a simple global credit scheduler. We show that from the limited results we observed, there is no convincing evidence of gang scheduling yielding any kind of benefit, but also that a more complete evaluation may still be needed.
 \end{abstract}
 
 % Same categories as Juan's DAC 2013 Tesselation paper
