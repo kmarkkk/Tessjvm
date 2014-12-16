@@ -315,7 +315,7 @@ Our experiences with gang scheduling reflect some of the findings in \cite{peter
 
 \textit{Callisto} is a resource management layer for parallel runtime systems. It utilizes dynamic spatial partitioning and co-scheduling in order to reduce the interference. The findings and accomplishments in Callisto is very similar to what we hope to achieve in this work. However, while Callisto targets general parallel runtime systems with CPU-intensive workloads, we focus specifically on JVM-specific tasks for applications with a wide variety of workloads.
 
-\textbf{Gang scheduling for VMs.} Rather than strictly gang scheduling vCPUs together, VMWare uses a relaxed co-scheduling algorithm that ensures that the skew on each vCPU does not grow too large in comparison to its peers \cite{vmware:whitepaper}. vCPUs that are lagging behind can be run individually to catch up while those that advanced too far stop and wait. Although more overhead is needed to keep track of vCPU progress, the scheduler benefits by having more flexibility in scheduling choices.
+Rather than strictly gang scheduling vCPUs together, the \textit{ESX} hypervisor by VMWare  uses a relaxed co-scheduling algorithm that ensures that the skew on each vCPU does not grow too large in comparison to its peers \cite{vmware:whitepaper}. vCPUs that are lagging behind can be run individually to catch up while those that advanced too far stop and wait. Although more overhead is needed to keep track of vCPU progress, the scheduler benefits by having more flexibility in scheduling choices.
 
 \section{Conclusion} \label{sec:conclusion}
 
