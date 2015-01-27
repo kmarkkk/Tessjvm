@@ -1,0 +1,8 @@
+* DaCapo and Cassandra/YCSB benchmarks on Xen4Tess(XARC)
+*
+********************************************************************************
+
+INTRODUCTION
+
+This document contains descriptions and usage of the scripts used to run multiple concurrent instances (each in its own domain) of the DaCapo and Cassandra/YCSB benchmark on Xen4Tess.
+
