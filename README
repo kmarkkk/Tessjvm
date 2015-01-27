@@ -3,6 +3,33 @@
 ********************************************************************************
 
 INTRODUCTION
+********************************************************************************
 
-This document contains descriptions and usage of the scripts used to run multiple concurrent instances (each in its own domain) of the DaCapo and Cassandra/YCSB benchmark on Xen4Tess.
+This document contains descriptions and usage of the scripts used to run multiple concurrent instances (each in its own domain) of the DaCapo and Cassandra/YCSB benchmark on Xen4Tess. Instances are run as OSv (http://osv.io/) images on top of the Xen4Tess hypervisor.
 
+FILES AND THEIR DESCRIPTIONS
+********************************************************************************
+
+./dacapo_converge.py: Runs the DaCapo benchmark suite locally on the machine (NOT WITHIN A DOMAIN) to determine the average amount of iterations needed to warmup each of the DaCapo benchmarks until performance converges.
+./dacapo_convergences.json: The average amount of interations needed to warmup each of the DaCapo benchmarks stored in json format.
+./dacapo_min_heap.json: DEPRECIATED. The min heapsize needed for each of the DaCapo benchmarks. The current heapsizes are inaccurate so please do not refer to them for now.
+./parse_dacapo.py: Parses results from the DaCapo experiments and generates graphs.
+./parse_dacapo_jit.py: Parses results from the DaCapo JIT experiments and generates graphs.
+./run_dacapo.py: Standard DaCapo Experiment. Run script to startup multiple concurrent instances of the DaCapo benchmark suite all running the same benchmark. Benchmark iteration runtimes are outputed for each domain.
+./run_dacapo_jit.py: JIT Experiment. Run script to startup multiple concurrent instances of the DaCapo benchmark to warmup in parallel. After warmup, all but one domain are destroyed. The remaining domain is run to completion to output benchmark iteration runtimes.
+./setup-gangsched-cpupool.sh: A bash script intended to easily create a new gang-scheduled cpupool within Xen.
+
+- NOTE: The following files are adapted from the run scripts found at https://github.com/cloudius-systems/osv/tree/master/scripts. These run scripts are used to start up domains on a Xen hypervisor
+
+./scripts/imgedit.py: Edits the command line to execute upon startup for an OSv image using qemu-nbd. Uses nbd_client.py to edit the image. 
+./scripts/nbd_client.py: Client to connect to qemu-nbd. Assumes qemu-nbd is found on port 10809.
+./scripts/run.py: Main run script. When using the Xen hypervisor, this run script creates a temporary file containing the domain config and uses the xl toolset to launch the domain. 
+
+RUNNING DACAPO EXPERIMENTS
+********************************************************************************
+
+RUNNING CASSANDRA/YCSB EXPERIMENTS
+********************************************************************************
+
+PARSING EXPERIMENT DATA FOR GRAPHS
+********************************************************************************
