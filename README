@@ -28,6 +28,45 @@ FILES AND THEIR DESCRIPTIONS
 RUNNING DACAPO EXPERIMENTS
 ********************************************************************************
 
+To run the DaCapo experiements, the run_dacapo.py script is used. This script launches multiple domains running DaCapo in parallel. This script also uses the xenalyze and xentrace tools to profile CPU usage in Xen. The important options to run_dacapo.py are as follows
+
+  -b BENCHMARK, --benchmark BENCHMARK
+                        Choose which benchmark(s) to run. Currently must be from the following list: avrora, h2, jython, luindex, lusearch, xalan. The other benchmarks do not seem to run stably on OSv. Can pass in a comma delimited string of benchmarks as well.
+  --startjvms STARTJVMS
+                        Starting number of JVMs to run in parallel. 
+  -n NUMJVMS, --numjvms NUMJVMS
+                        Max numbers of JVMs to run in parallel. If startjvms is 1 and numjvms is 16, then we will run experiments with 1, 2, 4, 8, and 16 domains running in parallel.   
+  -r RESULTSDIR, --resultsdir RESULTSDIR
+                        Directory to store results to.
+  --startheap STARTHEAP
+                        Starting Heapsize for our benchmarks.
+  -p MAXHEAP, --maxheap MAXHEAP
+                        Max Heapsize for our benchmarks. If startheap is 512 and maxheap is 2048, then we will run experiments  with JVMS containing 512, 1024, and 2048MB heapsizes.
+  -v, --verbose         Be more verbose
+  -s, --stdout          Output to stdout rather than to results directory.
+  -x, --xen             Whether or not to run this experiment on Xen.
+  -g, --gangscheduled   Whether or not gang scheduling is used
+  -i IMAGE, --image IMAGE
+                        Location of the OSv image with DaCapo on it. 
+  -m MEMSIZE, --memsize MEMSIZE
+                        Specify memory: ex. 1G, 2G, ... to allocate to each domain.
+  -c VCPUS, --vcpus VCPUS
+                        Specify number of vCPUs to allocate to each domain
+  -a CPUS, --cpus CPUS  Which CPU's to pin to for Xen
+  --safe                Run in 'Safe' Mode (don't rerun and overwrite tests
+                        which we already have results for)
+  --cpupool CPUPOOL     Which Xen cpupool to use
+  --pausefirst          Whether or not to pause all the domains until all of them begin running the JVM
+  --pauseafterwarmup    Whether or not to pause all domains until all of them are done warming up.
+
+To run the JIT experiment, run_dacapo_jit.py is used. This script has similar options to it. One additional option is given.
+
+  --iterations ITERATIONS
+                        How many iterations of the experiment to run.
+
+The JIT experiment warmups JVM's in parallel and then measures how long a single JVM takes to complete the benchmark when running alone. The iterations flag allows the user to run this experiement multiple times for multiple data points.
+
+
 RUNNING CASSANDRA/YCSB EXPERIMENTS
 ********************************************************************************
 
