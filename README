@@ -59,6 +59,12 @@ To run the DaCapo experiements, the run_dacapo.py script is used. This script la
   --pausefirst          Whether or not to pause all the domains until all of them begin running the JVM
   --pauseafterwarmup    Whether or not to pause all domains until all of them are done warming up.
 
+- NOTE: Here is an example command that can be run:
+
+sudo ./run_dacapo.py -b avrora --startjvms=4 -n 16 -r test --startheap=64 --maxheap=256 -v -x -i ../osv_images/dacapo.qemu -m 512M -c 6 --cpupool=CreditSchedPool —pausefirst.
+
+- This runs the avrora benchmark on 4, 8, and 16 JVMs in parallel with heapsizes of 64, 128, 256MB. This results in 9 combinations of heapsize and JVM size. We turn the xen and verbose flags on and output data into the test folder. Each domain is allocated 512M of memory and 6 vCPUs and is run on a CreditSchedPool. We choose to pause the domains until all domains intialize their JVMs.
+
 To run the JIT experiment, run_dacapo_jit.py is used. This script has similar options to it. One additional option is given.
 
   --iterations ITERATIONS
