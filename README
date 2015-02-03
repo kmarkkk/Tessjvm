@@ -78,3 +78,55 @@ RUNNING CASSANDRA/YCSB EXPERIMENTS
 
 PARSING EXPERIMENT DATA FOR GRAPHS
 ********************************************************************************
+
+DACAPO
+
+  -t TYPE, --type TYPE  
+                        Select a specific type of graph to generate. Omitting this option results in generating the default graph type of mean total runtimes. Currently supports the following 4 additional graph types: slowdown, gc, cdf. These plot runtime slowdown ratios compared to one JVM, slowdown in terms of total garbage collection time, and the cumulative distribution function of operations completed over time respectively.
+  -x, --xen
+                        Parse Xen results instead of linux
+  -r RESULTSDIR, --resultsdir RESULTSDIR
+                        Specify the directory containing the results to be parsed
+  -o OUTPUTDIR, --outputdir OUTPUTDIR
+                        Specify the directory to in which to save the generated graphs. If this option is omitted, the default behavior is to start up python to show graphs in separate windows (requires windowing system).
+  -e EXTENSION, --extension EXTENSION
+                        If the OUTPUTDIR option is provided, this specifies the file type the images should be saved in. The default is eps.
+  -b BENCHMARK, --benchmark BENCHMARK
+                        Choose which benchmark(s) to run. Currently must be from the following list: avrora, h2, jython, luindex, lusearch, xalan.
+
+Sample commands:
+
+python parse_dacapo.py -x -r results_directory
+
+python parse_dacapo.py -x -t slowdown -r results_directory -o output_directory
+
+YCSB
+
+  -t TYPE, --type TYPE  
+                        Select a specific type of graph to generate. Omitting this option results in generating every graph type. Currently supports the following graph type options: 
+                          'ovr_runtime' - Overall runtime of the benchmarks for different JVM counts
+                          'ovr_thruput' - Overall throughput
+                          'r_latency' - Mean read latency
+                          'r_95_latency' - 95th percentile read latency
+                          'r_99_latency' - 99th percentile read latency
+                          'u_latency' - Mean update latency
+                          'u_95_latency' - 95th percentile update latency
+                          'u_99_latency' - 99th percentile update latency
+                          'rw_latency' - Mean read-write latency
+                          'rw_95_latency' - 95th percentile read-write latency
+                          'rw_99_latency' - 99th percentile read-write latency
+  -x, --xen
+                        Parse Xen results instead of linux
+  -r RESULTSDIR, --resultsdir RESULTSDIR
+                        Specify the directory containing the results to be parsed
+  -o OUTPUTDIR, --outputdir OUTPUTDIR
+                        Specify the directory to in which to save the generated graphs. If this option is omitted, the default behavior is to start up python to show graphs in separate windows (requires windowing system).
+  -e EXTENSION, --extension EXTENSION
+                        If the OUTPUTDIR option is provided, this specifies the file type the images should be saved in. The default is eps.
+
+Sample commands:
+
+python parse_ycsb.py -x -r ycsb_results_directory
+
+python parse_ycsb.py -x -t rw_latency -r ycsb_results_directory -o output_directory
+

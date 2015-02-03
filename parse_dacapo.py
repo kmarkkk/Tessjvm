@@ -98,7 +98,7 @@ def plot_cdfs(benchmark, benchmark_experiments, os_type, results_dir, output_dir
     plt.xlabel("Time (ms)")
     plt.xlim(shortest_time*0.8, longest_time*1.1)
     plt.ylim(-0.025, 1.025)
-    # Move legend to the right1
+    # Move legend to the right
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -117,7 +117,7 @@ def plot_slowdowns(benchmark, benchmark_experiments, os_type, results_dir, outpu
   plt.clf()
   ax = plt.subplot(111)
 
-  # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
+  # We're going to "invert" the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
   keyed_by_mem_size = defaultdict(list)
   for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
     for memsize, runtime_stddev in memsize_to_results.iteritems():
@@ -153,14 +153,12 @@ def plot_gc(benchmark, benchmark_experiments, os_type, results_dir, output_dir, 
   plt.clf()
   ax = plt.subplot(111)
 
-  #GC_TYPE, GC_INDEX = "Major", 0
   GC_TYPE = "All"
 
-  # We're going to kind of invert the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
+  # "invert" the dictionary so it maps {mem_size -> [(jvm_count, avg_runtime),...]}
   keyed_by_mem_size = defaultdict(list)
   for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
     for memsize, avg_runtime in memsize_to_results.iteritems():
-      #keyed_by_mem_size[memsize].append((jvm_count, avg_runtime[GC_INDEX]))
       keyed_by_mem_size[memsize].append((jvm_count, avg_runtime))
 
   max_slowdown = 0
@@ -200,7 +198,6 @@ def plot_jit(benchmark, benchmark_experiments, os_type, results_dir, output_dir,
 
   plt.clf()
   ax = plt.subplot(111)
-  # Add an extra entry to the x-axis so we can see all of the experiments
   ax.set_xlim(0, len(memory_sizes)+1)
 
   for jvm_count, memsize_to_results in sorted(runtime_results.iteritems(), key=lambda t: t[0]):
@@ -209,15 +206,13 @@ def plot_jit(benchmark, benchmark_experiments, os_type, results_dir, output_dir,
     ax.bar([x + offset for x in xs], avg_runtimes, yerr=std_runtimes, ecolor='k', capsize=5, width=bar_width, color=next(color_iter), align="center", label="%d JVMs" % jvm_count)
     offset += bar_width
 
-  # Apply labels
+  # Apply labels and legend
   plt.title("%s Mean Total Runtime in Isolation (Parallel Warmup)" % benchmark)
   plt.ylabel("Runtime (ms)")
   plt.xlabel("Maximum Allocated Heap Size")
   plt.xticks(xs, map(lambda v: str(v)+"MB", memory_sizes))
   box = ax.get_position()
   ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-
-  # Put a legend to the right of the current axis
   ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
   save_or_show_current(output_dir, 'jit', benchmark, output_extension)
