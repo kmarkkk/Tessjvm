@@ -18,6 +18,7 @@ FILES AND THEIR DESCRIPTIONS
 ./run_dacapo.py: Standard DaCapo Experiment. Run script to startup multiple concurrent instances of the DaCapo benchmark suite all running the same benchmark. Benchmark iteration runtimes are outputed for each domain.
 ./run_dacapo_jit.py: JIT Experiment. Run script to startup multiple concurrent instances of the DaCapo benchmark to warmup in parallel. After warmup, all but one domain are destroyed. The remaining domain is run to completion to output benchmark iteration runtimes.
 ./setup-gangsched-cpupool.sh: A bash script intended to easily create a new gang-scheduled cpupool within Xen.
+./run_cassandra_ycsb.py: Script for running the cassandra experiment. It will first start cassandra domains, and once they are ready, it will launch ycsb domains and send workload requests. 
 
 - NOTE: The following files are adapted from the run scripts found at https://github.com/cloudius-systems/osv/tree/master/scripts. These run scripts are used to start up domains on a Xen hypervisor
 
@@ -75,6 +76,79 @@ The JIT experiment warmups JVM's in parallel and then measures how long a single
 
 RUNNING CASSANDRA/YCSB EXPERIMENTS
 ********************************************************************************
+
+To run the Cassandra experiements, the run_cassandra_ycsb.py script is used. This script launches multiple Cassandra domains in parallel, and start multiple concurrent ycsb domains afterwards. For Cassandra, we use 2.1.2. A detailed introduction of ycsb(code, workloads, etc...) can be found at https://github.com/brianfrankcooper/YCSB/wiki. The original ycsb doesn't work well with Cassandra 2.1.2 and has no cql support. We adopt the patch from https://github.com/cmatser/YCSB/tree/master/cassandra. 
+
+The important options to run_cassandra_ycsb.py are as follows
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --startjvms STARTJVMS
+                        starting amount of JVM's to test on
+  -n NUMJVMS, --numjvms NUMJVMS
+                        max amount of JVM's to test on
+  -r RESULTSDIR, --resultsdir RESULTSDIR
+                        where to store results
+  --startjvm STARTJVM   starting numebr of jvms
+  --startheap STARTHEAP
+                        starting heap size
+  -p MAXHEAP, --maxheap MAXHEAP
+                        max heap size
+  -v, --verbose         be more verbose
+  -s, --stdout          Output to stdout rather than to results dir
+  -x, --xen             whether or not to run on xen
+  -g, --gangscheduled   whether or not the version of xen has gang scheduling
+  -ci CASSANDRA_IMAGE, --cassandra-image CASSANDRA_IMAGE
+                        location of the osv image with cassandra on it
+  -yi YCSB_IMAGE, --ycsb-image YCSB_IMAGE
+                        location of the osv image with ycsb on it
+  -m MEMSIZE, --memsize MEMSIZE
+                        specify memory, in MB, ex. 1000, 2000, ...
+  -c VCPUS, --vcpus VCPUS
+                        specify number of vcpus
+  -l, --losetup         Whether or not use loop devices as disk image.
+  --ycsb-home YCSB_HOME
+                        path to the ycsb home
+  --cassandra-home CASSANDRA_HOME
+                        path to the cassandra home
+  --workload WORKLOAD   the workload file to run by ycsb
+  -a CPUS, --cpus CPUS  Which CPU's to pin to for Xen
+  --cpupool CPUPOOL     Which Xen cpupool to use
+  -nc NUM_CLUSTERS, --num-clusters NUM_CLUSTERS
+                        the number of clusters to run
+  --init-cql INIT_CQL   the cql file to init cassandra for testing
+  --ycsb-cmd YCSB_CMD   extra ycsb arguments
+  --clean CLEAN         clean all cassandra domains
+
+  For Xen networking, a virtual bridge needed to be manually set up and pass the gateway address to strings in the variable "defaultgw" on line 25 and 28. The script use 172.16.2.* to assign static ip for ycsb and cassandra domains.
+
+  Note:
+  When building cassandra images, since Cassandra uses a config file to set up the rpc_address, please make sure that they don't conflict. Otherwise the domain will be forced down during start up.
+
+  An example command:
+  sudo python ./run_cassandra_ycsb.py -x -v -n 4 -m 2048 -ci /scratch/teamosv/osv_images/cassandra.qemu -yi /scratch/teamosv/osv_images/ycsb.qemu -c 6 -a all --cpupool CreditSchedPool -r results_ycsb10 --cassandra-home ~/cassandra --init-cql init_ycsb_testtable.cql
+
+  -x means run on Xen, -v means verbose, -n 4 means run 4 domains, -m 2048 means each Cassandra domain has 2048 MB memory, -ci is the path to the cassandra qemu images. If you specify 4 domains, and give path to image name xxx.qemu, the script will look for xxx.qemu_1, xxx.qemu_2, xxx.qemu_3, xxx.qemu_4. -yi gives the path to the ycsb image. -c 6 means run on 6 virtual cpus, -a all means use all cpus in the specified pool, --cpupool CreditSchedPool means run on the CreditSchedPool, -r results_ycsb10 means put all the results in the directory 'results_ycsb10', --cassandra-home ~/cassandra gives the path to cassandra, which is used to send cql to init the tables in Cassandra domains for YCSB requests, --init-cql init_ycsb_testtable.cql gives the file of the init cql to run. Currently the content is
+
+    create keyspace ycsb
+    WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor': 1 };
+
+    use ycsb;
+
+    create table usertable (
+        y_id varchar primary key,
+        field0 varchar,
+        field1 varchar,
+        field2 varchar,
+        field3 varchar,
+        field4 varchar,
+        field5 varchar,
+        field6 varchar,
+        field7 varchar,
+        field8 varchar,
+        field9 varchar);
+
+  This is compatible with the Cassandra table schema inside ycsb code.
 
 PARSING EXPERIMENT DATA FOR GRAPHS
 ********************************************************************************
